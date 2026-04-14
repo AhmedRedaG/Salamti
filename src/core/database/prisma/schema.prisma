@@ -1,0 +1,432 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// =====================================================
+// Salamti Prisma Schema
+// =====================================================
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../../../../generated/prisma"
+  moduleFormat    = "cjs"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [pg_trgm, postgis]
+}
+
+// ==========================================
+// ROLES & USERS
+// ==========================================
+
+enum CurrentRoles {
+  ADMIN     @map("admin")
+  DRIVER    @map("driver")
+  PARAMEDIC @map("paramedic")
+}
+
+model Role {
+  id           String       @id @default(uuid()) @db.Uuid
+  name         CurrentRoles @unique
+  description  String?      @db.Text
+  isActive     Boolean      @default(true) @map("is_active")
+  canAccessWeb Boolean      @default(false) @map("can_access_web")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  roleId            String    @map("role_id") @db.Uuid
+  fullName          String    @map("full_name") @db.VarChar(100)
+  email             String    @unique @db.VarChar(150)
+  phone             String    @db.VarChar(20)
+  passwordHash      String?   @map("password_hash") @db.VarChar(255)
+  googleId          String?   @unique @map("google_id") @db.VarChar(50)
+  isActive          Boolean   @default(true) @map("is_active")
+  isVerified        Boolean   @default(false) @map("is_verified")
+  image             String?   @db.VarChar(150)
+  resetToken        String?   @map("reset_token") @db.Text
+  passwordChangedAt DateTime? @map("password_changed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  role                  Role           @relation(fields: [roleId], references: [id])
+  admin                 Admin?
+  driver                Driver?
+  paramedic             Paramedic?
+  authAttempts          AuthAttempt?
+  userSessions          UserSession[]
+  otps                  Otp[]
+  receivedNotifications Notification[] @relation("ReceivedNotifications")
+  sentNotifications     Notification[] @relation("SentNotifications")
+
+  
+  @@index([roleId])
+  @@index([email])
+  @@index([googleId])
+  @@index([isActive])
+  @@index([isVerified])
+  @@index([fullName(ops: raw("gin_trgm_ops"))], type: Gin, map: "user_fullname_gin_idx")
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "user_phone_gin_idx")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "user_email_gin_idx")
+  @@map("users")
+}
+
+model Admin {
+  id          String   @id @db.Uuid
+  institution String   @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [id], references: [id], onDelete: Cascade)
+
+  @@map("admins")
+}
+
+enum BloodType {
+  A_PLUS   @map("A+")
+  A_MINUS  @map("A-")
+  B_PLUS   @map("B+")
+  B_MINUS  @map("B-")
+  AB_PLUS  @map("AB+")
+  AB_MINUS @map("AB-")
+  O_PLUS   @map("O+")
+  O_MINUS  @map("O-")
+}
+
+model Driver {
+  id                String    @id @db.Uuid
+  age               Int       @db.SmallInt
+  bloodType         BloodType @map("blood_type")
+  medicalConditions Json?     @map("medical_conditions")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user              User               @relation(fields: [id], references: [id], onDelete: Cascade)
+  emergencyContacts EmergencyContact[]
+  vehicles          Vehicle[]
+  incidents         Incident[]
+
+  @@map("drivers")
+}
+
+model Paramedic {
+  id           String                                 @id @db.Uuid
+  employeeId   String                                 @map("employee_id") @db.VarChar(100)
+  isAvailable  Boolean                                @default(false) @map("is_available")
+  location     Unsupported("geography(Point, 4326)")?
+  createdAt    DateTime                               @default(now()) @map("created_at")
+
+  user              User               @relation(fields: [id], references: [id], onDelete: Cascade)
+  incidentResponses IncidentResponse[]
+
+  @@map("paramedics")
+}
+
+// ==========================================
+// AUTHENTICATION
+// ==========================================
+
+model AuthAttempt {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @unique @map("user_id") @db.Uuid 
+  login      Int      @default(0) @map("login") @db.SmallInt
+  reset      Int      @default(0) @map("reset") @db.SmallInt
+  sendOtp    Int      @default(0) @map("send_otp") @db.SmallInt
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_attempts")
+}
+
+enum Platform {
+  MOBILE  @map("mobile")
+  WEB     @map("web")
+  UNKNOWN @map("unknown")
+}
+
+model UserSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  refreshToken String   @map("refresh_token") @db.Text
+  isRevoked    Boolean  @default(false) @map("is_revoked")
+  ipAddress    String?  @map("ip_address") @db.VarChar(50)
+  userAgent    String?  @map("user_agent") @db.Text
+  platform     Platform @default(MOBILE)
+  expiresAt    DateTime @map("expires_at")
+  deviceToken  String?  @map("device_token") @db.Text
+  deviceId     String   @map("device_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([userId])
+  @@index([refreshToken])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model Otp {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  code      Int       @db.Integer
+  createdAt DateTime  @default(now()) @map("created_at")
+  expiresAt DateTime? @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("otps")
+}
+
+// ==========================================
+// EMERGENCY CONTACTS
+// ==========================================
+
+enum Relationship {
+  FAMILY    @map("family")
+  FRIEND    @map("friend")
+  COLLEAGUE @map("colleague")
+  NEIGHBOR  @map("neighbor")
+  PARTNER   @map("partner")
+  OTHER     @map("other")
+}
+
+model EmergencyContact {
+  id           String       @id @default(uuid()) @db.Uuid
+  driverId     String      @map("driver_id") @db.Uuid
+  fullName     String      @map("full_name") @db.VarChar(150)
+  email        String       @db.VarChar(150)
+  phone        String       @db.VarChar(20)
+  relationship Relationship
+  autoNotify   Boolean      @default(true) @map("auto_notify")
+  instantSms   Boolean      @default(false) @map("instant_sms")
+  voiceCall    Boolean      @default(false) @map("voice_call")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, email, phone])
+  @@index([driverId])
+  @@index([fullName(ops: raw("gin_trgm_ops"))], type: Gin, map: "emergency_contact_fullname_gin_idx")
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "emergency_contact_phone_gin_idx")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "emergency_contact_email_gin_idx")
+  @@map("emergency_contacts")
+}
+
+// ==========================================
+// VEHICLES & OBU DEVICES
+// ==========================================
+
+model Vehicle {
+  id           String   @id @default(uuid()) @db.Uuid
+  driverId     String   @map("driver_id") @db.Uuid
+  maker        String   @db.VarChar(100)
+  model        String   @db.VarChar(100)
+  color        String   @db.VarChar(30)
+  year         Int      @db.SmallInt
+  licensePlate String   @map("license_plate") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  driver    Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  obus      Obu[]
+  incidents Incident[]
+
+  @@index([driverId])
+  @@index([licensePlate(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicle_license_plate_gin_idx")
+  @@index([maker(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicle_maker_gin_idx")
+  @@index([model(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicle_model_gin_idx")
+  @@index([color(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicle_color_gin_idx")
+  @@map("vehicles")
+}
+
+enum ObuStatus {
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
+  READY    @map("ready")
+  OUTDATED @map("outdated")
+  BROKEN   @map("broken")
+}
+
+model Obu {
+  id            String    @id @default(uuid()) @db.Uuid
+  vehicleId     String?   @map("vehicle_id") @db.Uuid
+  name          String    @db.VarChar(50)
+  instNumber    String    @map("inst_number") @db.VarChar(100)
+  simCardNumber String    @map("sim_card_number") @db.VarChar(50)
+  isValid       Boolean   @default(true) @map("is_valid")
+  status        ObuStatus
+  version       String    @db.VarChar(50)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  activatedAt   DateTime? @map("activated_at")
+
+  vehicle   Vehicle?   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  incidents Incident[]
+
+  @@index([vehicleId])
+  @@index([instNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "obu_inst_number_gin_idx")
+  @@index([simCardNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "obu_sim_card_number_gin_idx")
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "obu_name_gin_idx")
+  @@map("obus")
+}
+
+// ==========================================
+// INCIDENTS
+// ==========================================
+
+enum IncidentType {
+  INCIDENTS @map("incidents")
+  SOS       @map("sos")
+}
+
+enum IncidentLevel {
+  HIGH    @map("high")
+  MEDIUM  @map("medium")
+  LOW     @map("low")
+  UNKNOWN @map("unknown")
+}
+
+enum IncidentStatus {
+  RECORDED    @map("recorded")
+  CANCELED    @map("canceled")
+  CONFIRMED   @map("confirmed")
+  IN_PROGRESS @map("in_progress")
+  COMPLETED   @map("completed")
+  FAILED      @map("failed")
+}
+
+model Incident {
+  id        String                               @id @default(uuid()) @db.Uuid
+  driverId  String                               @map("driver_id") @db.Uuid
+  vehicleId String                               @map("vehicle_id") @db.Uuid
+  obuId     String                               @map("obu_id") @db.Uuid
+  time      DateTime
+  location  Unsupported("geography(Point, 4326)")
+  type      IncidentType
+  level     IncidentLevel
+  status    IncidentStatus
+  createdAt DateTime                             @default(now()) @map("created_at")
+
+  driver            Driver               @relation(fields: [driverId], references: [id])
+  vehicle           Vehicle              @relation(fields: [vehicleId], references: [id])
+  obu               Obu                  @relation(fields: [obuId], references: [id])
+  incidentResponses IncidentResponse[]
+  sensorData        IncidentSensorData[]
+
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([obuId])
+  @@map("incidents")
+}
+
+enum ResponseStatus {
+  DISPATCHED @map("dispatched")
+  ARRIVED    @map("arrived")
+  COMPLETED  @map("completed")
+  CANCELED   @map("canceled")
+}
+
+enum PatientStatus {
+  STABLE   @map("stable")
+  GUARDED  @map("guarded")
+  SERIOUS  @map("serious")
+  URGENT   @map("urgent")
+  CRITICAL @map("critical")
+  UNKNOWN  @map("unknown")
+}
+
+model IncidentResponse {
+  id                     String         @id @default(uuid()) @db.Uuid
+  incidentId             String         @map("incident_id") @db.Uuid
+  paramedicId            String         @map("paramedic_id") @db.Uuid
+  responseStatus         ResponseStatus @map("response_status")
+  dispatchedAt           DateTime?      @map("dispatched_at")
+  arrivedAt              DateTime?      @map("arrived_at")
+  completedAt            DateTime?      @map("completed_at")
+  paramedicObservations  String?        @map("paramedic_observations") @db.VarChar(150)
+  transportingToHospital String?        @map("transporting_to_hospital") @db.VarChar(150)
+  patientStatus          PatientStatus  @map("patient_status")
+
+  incident  Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  paramedic Paramedic @relation(fields: [paramedicId], references: [id])
+
+  @@index([incidentId])
+  @@index([paramedicId])
+  @@map("incident_response")
+}
+
+model IncidentSensorData {
+  id            String   @id @default(uuid()) @db.Uuid
+  incidentId    String   @map("incident_id") @db.Uuid
+  gps           Json?
+  gyroscope     Json?
+  temperature   Json?
+  accelerometer Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@map("incident_sensor_data")
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+enum NotificationPriority {
+  LOW     @map("low")
+  NORMAL  @map("normal")
+  HIGH    @map("high")
+  URGENT  @map("urgent")
+}
+
+enum NotificationSlug {
+  NEW_LOGIN_DETECTED @map("new_login_detected")
+  PASSWORD_CHANGED   @map("password_changed")
+}
+
+model NotificationType {
+  id       String               @id @default(uuid()) @db.Uuid
+  slug     NotificationSlug     @unique
+  title    String               @unique @db.VarChar(100)
+  template String               @db.Text
+  priority NotificationPriority @default(NORMAL)
+
+  notifications Notification[]
+
+  @@map("notification_types")
+}
+
+model Notification {
+  id             String    @id @default(uuid()) @db.Uuid
+  recipientId    String    @map("recipient_id") @db.Uuid
+  actorId        String?   @map("actor_id") @db.Uuid
+  typeId         String    @map("type_id") @db.Uuid
+  referenceId    String?   @map("reference_id") @db.Uuid
+  referenceTable String?   @map("reference_table") @db.VarChar(50)
+  titleSnapshot  String    @map("title_snapshot") @db.VarChar(255)
+  bodySnapshot   String    @map("body_snapshot") @db.Text
+  isRead         Boolean   @default(false) @map("is_read")
+  readAt         DateTime? @map("read_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  recipient User              @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User?             @relation("SentNotifications", fields: [actorId], references: [id], onDelete: SetNull)
+  type      NotificationType  @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  @@index([recipientId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([titleSnapshot(ops: raw("gin_trgm_ops"))], type: Gin, map: "notification_title_snapshot_gin_idx")
+  @@index([bodySnapshot(ops: raw("gin_trgm_ops"))], type: Gin, map: "notification_body_snapshot_gin_idx")
+  @@map("notifications")
+}
