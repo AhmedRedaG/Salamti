@@ -22,6 +22,7 @@ import { randomUUID } from 'crypto';
 import { GoogleAuthModule } from './integrations/google-auth/google-auth.module';
 import { EmailModule } from './modules/email/email.module';
 import { BrevoEmailModule } from './integrations/brevo-email/brevo-email.module';
+import { EmergencyContactsModule } from './modules/emergency-contacts/emergency-contacts.module';
 
 @Module({
   imports: [
@@ -165,6 +166,7 @@ import { BrevoEmailModule } from './integrations/brevo-email/brevo-email.module'
     GoogleAuthModule,
     BrevoEmailModule,
     EmailModule,
+    EmergencyContactsModule,
   ],
   controllers: [AppController],
   providers: [
