@@ -109,6 +109,7 @@ model Driver {
   emergencyContacts EmergencyContact[]
   vehicles          Vehicle[]
   incidents         Incident[]
+  obus              Obu[]
 
   @@map("drivers")
 }
@@ -233,7 +234,7 @@ model Vehicle {
   model        String   @db.VarChar(100)
   color        String   @db.VarChar(30)
   year         Int      @db.SmallInt
-  licensePlate String   @map("license_plate") @db.VarChar(50)
+  licensePlate String   @unique @map("license_plate") @db.VarChar(50)
   createdAt    DateTime @default(now()) @map("created_at")
 
   driver    Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
@@ -250,7 +251,6 @@ model Vehicle {
 
 enum ObuStatus {
   ACTIVE   @map("active")
-  INACTIVE @map("inactive")
   READY    @map("ready")
   OUTDATED @map("outdated")
   BROKEN   @map("broken")
@@ -258,23 +258,27 @@ enum ObuStatus {
 
 model Obu {
   id            String    @id @default(uuid()) @db.Uuid
+  driverId      String?   @map("driver_id") @db.Uuid
   vehicleId     String?   @map("vehicle_id") @db.Uuid
   name          String    @db.VarChar(50)
-  instNumber    String    @map("inst_number") @db.VarChar(100)
-  simCardNumber String    @map("sim_card_number") @db.VarChar(50)
+  instNumber    String    @unique @map("inst_number") @db.VarChar(100)
+  simCardNumber String    @unique @map("sim_card_number") @db.VarChar(50)
   isValid       Boolean   @default(true) @map("is_valid")
-  status        ObuStatus
+  status        ObuStatus @default(READY)
   version       String    @db.VarChar(50)
   createdAt     DateTime  @default(now()) @map("created_at")
   activatedAt   DateTime? @map("activated_at")
 
+  driver    Driver?    @relation(fields: [driverId], references: [id], onDelete: SetNull)
   vehicle   Vehicle?   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   incidents Incident[]
 
+  @@index([driverId])
   @@index([vehicleId])
   @@index([instNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "obu_inst_number_gin_idx")
   @@index([simCardNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "obu_sim_card_number_gin_idx")
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "obu_name_gin_idx")
+  @@index([version(ops: raw("gin_trgm_ops"))], type: Gin, map: "obu_version_gin_idx")
   @@map("obus")
 }
 

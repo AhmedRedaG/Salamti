@@ -23,6 +23,8 @@ import { GoogleAuthModule } from './integrations/google-auth/google-auth.module'
 import { EmailModule } from './modules/email/email.module';
 import { BrevoEmailModule } from './integrations/brevo-email/brevo-email.module';
 import { EmergencyContactsModule } from './modules/emergency-contacts/emergency-contacts.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { ObusModule } from './modules/obus/obus.module';
 
 @Module({
   imports: [
@@ -167,6 +169,8 @@ import { EmergencyContactsModule } from './modules/emergency-contacts/emergency-
     BrevoEmailModule,
     EmailModule,
     EmergencyContactsModule,
+    VehiclesModule,
+    ObusModule,
   ],
   controllers: [AppController],
   providers: [
