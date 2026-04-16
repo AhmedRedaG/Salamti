@@ -66,7 +66,6 @@ model User {
   receivedNotifications Notification[] @relation("ReceivedNotifications")
   sentNotifications     Notification[] @relation("SentNotifications")
 
-  
   @@index([roleId])
   @@index([email])
   @@index([googleId])
@@ -117,6 +116,7 @@ model Driver {
 model Paramedic {
   id           String                                 @id @db.Uuid
   employeeId   String                                 @map("employee_id") @db.VarChar(100)
+  isAuthorized Boolean                                @default(false) @map("is_authorized")
   isAvailable  Boolean                                @default(false) @map("is_available")
   location     Unsupported("geography(Point, 4326)")?
   createdAt    DateTime                               @default(now()) @map("created_at")
@@ -132,12 +132,12 @@ model Paramedic {
 // ==========================================
 
 model AuthAttempt {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @unique @map("user_id") @db.Uuid 
-  login      Int      @default(0) @map("login") @db.SmallInt
-  reset      Int      @default(0) @map("reset") @db.SmallInt
-  sendOtp    Int      @default(0) @map("send_otp") @db.SmallInt
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  login     Int      @default(0) @map("login") @db.SmallInt
+  reset     Int      @default(0) @map("reset") @db.SmallInt
+  sendOtp   Int      @default(0) @map("send_otp") @db.SmallInt
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -202,8 +202,8 @@ enum Relationship {
 
 model EmergencyContact {
   id           String       @id @default(uuid()) @db.Uuid
-  driverId     String      @map("driver_id") @db.Uuid
-  fullName     String      @map("full_name") @db.VarChar(150)
+  driverId     String       @map("driver_id") @db.Uuid
+  fullName     String       @map("full_name") @db.VarChar(150)
   email        String       @db.VarChar(150)
   phone        String       @db.VarChar(20)
   relationship Relationship
@@ -304,16 +304,16 @@ enum IncidentStatus {
 }
 
 model Incident {
-  id        String                               @id @default(uuid()) @db.Uuid
-  driverId  String                               @map("driver_id") @db.Uuid
-  vehicleId String                               @map("vehicle_id") @db.Uuid
-  obuId     String                               @map("obu_id") @db.Uuid
+  id        String                                @id @default(uuid()) @db.Uuid
+  driverId  String                                @map("driver_id") @db.Uuid
+  vehicleId String                                @map("vehicle_id") @db.Uuid
+  obuId     String                                @map("obu_id") @db.Uuid
   time      DateTime
   location  Unsupported("geography(Point, 4326)")
   type      IncidentType
   level     IncidentLevel
   status    IncidentStatus
-  createdAt DateTime                             @default(now()) @map("created_at")
+  createdAt DateTime                              @default(now()) @map("created_at")
 
   driver            Driver               @relation(fields: [driverId], references: [id])
   vehicle           Vehicle              @relation(fields: [vehicleId], references: [id])
@@ -383,10 +383,10 @@ model IncidentSensorData {
 // ==========================================
 
 enum NotificationPriority {
-  LOW     @map("low")
-  NORMAL  @map("normal")
-  HIGH    @map("high")
-  URGENT  @map("urgent")
+  LOW    @map("low")
+  NORMAL @map("normal")
+  HIGH   @map("high")
+  URGENT @map("urgent")
 }
 
 enum NotificationSlug {
@@ -419,9 +419,9 @@ model Notification {
   readAt         DateTime? @map("read_at")
   createdAt      DateTime  @default(now()) @map("created_at")
 
-  recipient User              @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
-  actor     User?             @relation("SentNotifications", fields: [actorId], references: [id], onDelete: SetNull)
-  type      NotificationType  @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  recipient User             @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User?            @relation("SentNotifications", fields: [actorId], references: [id], onDelete: SetNull)
+  type      NotificationType @relation(fields: [typeId], references: [id], onDelete: Restrict)
 
   @@index([recipientId])
   @@index([isRead])

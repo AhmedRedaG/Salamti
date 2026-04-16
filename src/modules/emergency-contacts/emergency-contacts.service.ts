@@ -14,7 +14,7 @@ import { EmergencyContactFindOptionsQueryFilter } from './filter/emergency-conta
 import { JwtPayload } from '../../types/auth.types';
 import { CurrentRoles } from '../../../generated/prisma/enums';
 import { Prisma } from '../../../generated/prisma/client';
-import { emergencyContactFindOneInclude } from './constant/emergency-contacts.selectors';
+import { emergencyContactFindOneInclude } from './constant/emergency-contacts.constant';
 
 @Injectable()
 export class EmergencyContactsService {

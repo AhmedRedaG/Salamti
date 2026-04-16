@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
-import { roleFindOneSelect } from './constant/roles.selectors';
+import { roleFindOneSelect } from './constant/roles.constant';
 import { Prisma } from '../../../generated/prisma/client';
 
 @Injectable()
