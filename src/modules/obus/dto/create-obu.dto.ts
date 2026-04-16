@@ -1,4 +1,4 @@
-import { IsString, Length } from 'class-validator';
+import { IsPhoneNumber, IsString, Length } from 'class-validator';
 
 export class CreateObuDto {
   @IsString()
@@ -9,8 +9,7 @@ export class CreateObuDto {
   @Length(1, 100)
   instNumber!: string;
 
-  @IsString()
-  @Length(1, 50)
+  @IsPhoneNumber()
   simCardNumber!: string;
 
   @IsString()

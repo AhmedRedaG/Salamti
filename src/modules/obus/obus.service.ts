@@ -97,7 +97,11 @@ export class ObusService {
 
     const updatedObu = await this.prismaService.obu.update({
       where: { id: obuId },
-      data: { vehicleId: dto.vehicleId, status: ObuStatus.ACTIVE },
+      data: {
+        vehicleId: dto.vehicleId,
+        status: ObuStatus.ACTIVE,
+        activatedAt: new Date(),
+      },
     });
 
     this.logger.log(

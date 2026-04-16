@@ -8,6 +8,8 @@ import {
   Delete,
   ParseUUIDPipe,
   Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ObusService } from './obus.service';
 import { CreateObuDto } from './dto/create-obu.dto';
@@ -32,6 +34,7 @@ export class ObusController {
   }
 
   @Roles(CurrentRoles.DRIVER)
+  @HttpCode(HttpStatus.OK)
   @Post('claim')
   claim(@CurrentUser('sub') userId: string, @Body() dto: ClaimObuDto) {
     return this.obusService.claim(userId, dto);
