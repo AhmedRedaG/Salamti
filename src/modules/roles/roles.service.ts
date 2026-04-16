@@ -1,10 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
-import {
-  RoleGetPayload,
-  RoleSelect,
-  RoleWhereInput,
-} from '../../../generated/prisma/models';
+import { roleFindOneSelect } from './constant/roles.constant';
+import { Prisma } from '../../../generated/prisma/client';
 
 @Injectable()
 export class RolesService {
@@ -18,38 +15,19 @@ export class RolesService {
   }
 
   async findOne(id: string) {
-    const role = await this.findOrThrow(
-      { id },
-      {
-        id: true,
-        name: true,
-        canAccessWeb: true,
-        description: true,
-        isActive: true,
-        createdAt: true,
-        users: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            phone: true,
-            image: true,
-          },
-        },
-      },
-    );
+    const role = await this.findOrThrow({ id }, roleFindOneSelect);
     return { success: true, data: { role } };
   }
 
-  async findOrThrow<T extends RoleSelect | undefined>(
-    where: RoleWhereInput,
+  async findOrThrow<T extends Prisma.RoleSelect | undefined>(
+    where: Prisma.RoleWhereInput,
     select?: T,
   ) {
     try {
       return (await this.prismaService.role.findFirstOrThrow({
         where,
         select,
-      })) as RoleGetPayload<{ select: T }>;
+      })) as Prisma.RoleGetPayload<{ select: T }>;
     } catch {
       throw new NotFoundException('role.ROLE_NOT_FOUND');
     }

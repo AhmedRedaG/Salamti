@@ -9,19 +9,9 @@ import {
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
 import { AuthUtilsService } from '../auth/auth-utils.service';
-import {
-  UserSelect,
-  UserUncheckedCreateInput,
-  UserWhereInput,
-} from '../../../generated/prisma/models';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { getPaginationParams } from '../../common/utils/pagination.utils';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
-import {
-  UserGetPayload,
-  UserInclude,
-  UserScalarFieldEnum,
-} from '../../../generated/prisma/internal/prismaNamespace';
 import { UserFindOptionsQueryFilter } from './filter/users-find-options-query-filter';
 import {
   CurrentRoles,
@@ -33,6 +23,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '../../../generated/prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
 import { JwtPayload } from '../../types/auth.types';
+import { userFindAllSelect } from './constant/users.constant';
 
 @Injectable()
 export class UsersService {
@@ -66,7 +57,7 @@ export class UsersService {
     }
 
     // set new user initial data
-    const data: UserUncheckedCreateInput = {
+    const data: Prisma.UserUncheckedCreateInput = {
       roleId: role.id,
       ...initData,
 
@@ -159,7 +150,7 @@ export class UsersService {
       findOptions;
 
     // create where condition
-    const where: UserWhereInput = {
+    const where: Prisma.UserWhereInput = {
       isActive,
       isVerified,
       roleId,
@@ -174,7 +165,7 @@ export class UsersService {
     }
 
     // validate orderedBy
-    if (!UserScalarFieldEnum[orderBy]) {
+    if (!Prisma.UserScalarFieldEnum[orderBy]) {
       throw new BadRequestException('users.INVALID_ORDERBY_FIELD');
     }
 
@@ -187,22 +178,7 @@ export class UsersService {
         orderBy: {
           [orderBy]: orderDirection,
         },
-        select: {
-          id: true,
-          fullName: true,
-          image: true,
-          isActive: true,
-          isVerified: true,
-          phone: true,
-          email: true,
-          createdAt: true,
-          role: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
+        select: userFindAllSelect,
       }),
       this.prismaService.user.count({ where }),
     ]);
@@ -235,7 +211,7 @@ export class UsersService {
     );
 
     // main include
-    const include: UserInclude = {
+    const include: Prisma.UserInclude = {
       role: {
         select: {
           id: true,
@@ -361,25 +337,25 @@ export class UsersService {
 
   // ================== Helper Methods ==================
 
-  async findOneByEmail<T extends UserSelect | undefined>(
+  async findOneByEmail<T extends Prisma.UserSelect | undefined>(
     email: string,
     select?: T,
   ) {
     return (await this.prismaService.user.findUnique({
       where: { email },
       select,
-    })) as UserGetPayload<{ select: T }>;
+    })) as Prisma.UserGetPayload<{ select: T }>;
   }
 
-  async findOrThrow<T extends UserSelect | undefined>(
-    where: UserWhereInput,
+  async findOrThrow<T extends Prisma.UserSelect | undefined>(
+    where: Prisma.UserWhereInput,
     select?: T,
   ) {
     try {
       return (await this.prismaService.user.findFirstOrThrow({
         where,
         select,
-      })) as UserGetPayload<{ select: T }>;
+      })) as Prisma.UserGetPayload<{ select: T }>;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -390,15 +366,15 @@ export class UsersService {
     }
   }
 
-  async findIncludeOrThrow<T extends UserInclude | undefined>(
-    where: UserWhereInput,
+  async findIncludeOrThrow<T extends Prisma.UserInclude | undefined>(
+    where: Prisma.UserWhereInput,
     include?: T,
   ) {
     try {
       return (await this.prismaService.user.findFirstOrThrow({
         where,
         include,
-      })) as UserGetPayload<{ include: T }>;
+      })) as Prisma.UserGetPayload<{ include: T }>;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
