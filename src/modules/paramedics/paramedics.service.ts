@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
@@ -17,6 +18,8 @@ import { getPaginationParams } from '../../common/utils/pagination.utils';
 
 @Injectable()
 export class ParamedicsService {
+  private readonly logger = new Logger(ParamedicsService.name);
+
   constructor(private readonly prismaService: PrismaService) {}
 
   async paramedicAuthorization(id: string, isAuthorized: boolean) {
@@ -37,6 +40,10 @@ export class ParamedicsService {
         ...(!isAuthorized && { status: ParamedicStatus.UNAVAILABLE }),
       },
     });
+
+    this.logger.log(
+      `paramedic id: ${id} authorization changed to ${isAuthorized}`,
+    );
 
     return { success: true };
   }
@@ -73,6 +80,10 @@ export class ParamedicsService {
       WHERE "id" = ${userId}
     `);
 
+    this.logger.log(
+      `paramedic id: ${userId} status changed to available location: ${gpsLongitude}, ${gpsLatitude}`,
+    );
+
     return { success: true };
   }
 
@@ -102,6 +113,8 @@ export class ParamedicsService {
       where: { id: userId },
       data: { status: ParamedicStatus.UNAVAILABLE },
     });
+
+    this.logger.log(`paramedic id: ${userId} status changed to unavailable`);
 
     return { success: true };
   }
