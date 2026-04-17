@@ -25,6 +25,7 @@ import { BrevoEmailModule } from './integrations/brevo-email/brevo-email.module'
 import { EmergencyContactsModule } from './modules/emergency-contacts/emergency-contacts.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { ObusModule } from './modules/obus/obus.module';
+import { ParamedicsModule } from './modules/paramedics/paramedics.module';
 
 @Module({
   imports: [
@@ -171,6 +172,7 @@ import { ObusModule } from './modules/obus/obus.module';
     EmergencyContactsModule,
     VehiclesModule,
     ObusModule,
+    ParamedicsModule,
   ],
   controllers: [AppController],
   providers: [

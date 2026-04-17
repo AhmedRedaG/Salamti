@@ -18,6 +18,7 @@ import { CurrentRoles, ObuStatus } from '../../../generated/prisma/enums';
 import { Prisma } from '../../../generated/prisma/client';
 import { obuFindOneInclude } from './constant/obus.constant';
 import { VehiclesService } from '../vehicles/vehicles.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class ObusService {
@@ -26,6 +27,7 @@ export class ObusService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly vehiclesService: VehiclesService,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(dto: CreateObuDto) {
@@ -53,9 +55,17 @@ export class ObusService {
       },
       { id: true, driverId: true },
     );
-
     if (obu.driverId) {
       throw new ConflictException('obus.OBU_ALREADY_CLAIMED');
+    }
+
+    // sure that user is verified
+    const user = await this.usersService.findOrThrow(
+      { id: userId },
+      { isVerified: true },
+    );
+    if (!user || !user.isVerified) {
+      throw new BadRequestException('users.USER_IS_NOT_VERIFIED');
     }
 
     const updatedObu = await this.prismaService.obu.update({

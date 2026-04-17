@@ -114,17 +114,25 @@ model Driver {
   @@map("drivers")
 }
 
+enum ParamedicStatus {
+  AVAILABLE   @map("available")
+  UNAVAILABLE @map("unavailable")
+  ON_MISSION  @map("on_mission")
+}
+
+// TODO: add gist index on location when creating migrations
 model Paramedic {
   id           String                                 @id @db.Uuid
   employeeId   String                                 @map("employee_id") @db.VarChar(100)
   isAuthorized Boolean                                @default(false) @map("is_authorized")
-  isAvailable  Boolean                                @default(false) @map("is_available")
+  status       ParamedicStatus                        @default(UNAVAILABLE) @map("status")
   location     Unsupported("geography(Point, 4326)")?
   createdAt    DateTime                               @default(now()) @map("created_at")
 
   user              User               @relation(fields: [id], references: [id], onDelete: Cascade)
   incidentResponses IncidentResponse[]
 
+  @@index([status, isAuthorized])
   @@map("paramedics")
 }
 
