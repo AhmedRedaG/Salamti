@@ -74,7 +74,7 @@ export class UsersController {
 
   @Patch(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() userPayload: JwtPayload,
     @Body() dto: UpdateUserDto,
   ) {
