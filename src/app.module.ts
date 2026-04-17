@@ -26,6 +26,7 @@ import { EmergencyContactsModule } from './modules/emergency-contacts/emergency-
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { ObusModule } from './modules/obus/obus.module';
 import { ParamedicsModule } from './modules/paramedics/paramedics.module';
+import { DriversModule } from './modules/drivers/drivers.module';
 
 @Module({
   imports: [
@@ -173,6 +174,7 @@ import { ParamedicsModule } from './modules/paramedics/paramedics.module';
     VehiclesModule,
     ObusModule,
     ParamedicsModule,
+    DriversModule,
   ],
   controllers: [AppController],
   providers: [

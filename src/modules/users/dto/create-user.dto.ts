@@ -8,6 +8,7 @@ import {
   IsPhoneNumber,
   IsString,
   Length,
+  Max,
   Min,
 } from 'class-validator';
 import { BloodType, CurrentRoles } from '../../../../generated/prisma/enums';
@@ -46,6 +47,7 @@ export class CreateUserDto {
   @IsOptional()
   @IsNumber()
   @Min(16)
+  @Max(100)
   age?: number;
 
   // for driver
