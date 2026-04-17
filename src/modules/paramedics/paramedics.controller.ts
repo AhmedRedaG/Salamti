@@ -1,0 +1,74 @@
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { ParamedicsService } from './paramedics.service';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentRoles } from '../../../generated/prisma/enums';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AvailableParamedicDto } from './dto/available-paramedic.dto';
+import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
+import { ParamedicsLocationFindOptionsQueryFilter } from './filter/users-find-options-query-filter';
+
+@Controller('paramedics')
+export class ParamedicsController {
+  constructor(private readonly paramedicsService: ParamedicsService) {}
+
+  @Roles(CurrentRoles.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/authorize')
+  authorizeParamedic(@Param('id', ParseUUIDPipe) id: string) {
+    return this.paramedicsService.paramedicAuthorization(id, true);
+  }
+
+  @Roles(CurrentRoles.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/unauthorize')
+  unauthorizeParamedic(@Param('id', ParseUUIDPipe) id: string) {
+    return this.paramedicsService.paramedicAuthorization(id, false);
+  }
+
+  @Roles(CurrentRoles.PARAMEDIC)
+  @HttpCode(HttpStatus.OK)
+  @Post('available')
+  availableParamedic(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: AvailableParamedicDto,
+  ) {
+    return this.paramedicsService.paramedicAvailable(userId, dto);
+  }
+
+  @Roles(CurrentRoles.PARAMEDIC)
+  @HttpCode(HttpStatus.OK)
+  @Post('unavailable')
+  unavailableParamedic(@CurrentUser('sub') userId: string) {
+    return this.paramedicsService.paramedicUnavailable(userId);
+  }
+
+  @Roles(CurrentRoles.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Get('locations')
+  findAllParamedicsLocations(
+    @Query() findOptions: ParamedicsLocationFindOptionsQueryFilter,
+    @Query() pagination: PaginationQueryFilter,
+  ) {
+    return this.paramedicsService.findAllParamedicsLocations(
+      pagination,
+      findOptions,
+    );
+  }
+
+  @Roles(CurrentRoles.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Get(':id/location')
+  findParamedicLocation(@Param('id', ParseUUIDPipe) id: string) {
+    return this.paramedicsService.findParamedicLocation(id);
+  }
+}

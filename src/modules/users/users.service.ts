@@ -159,8 +159,9 @@ export class UsersService {
     // add search logic
     if (search) {
       where.OR = [
-        { phone: { contains: search, mode: 'insensitive' } },
         { fullName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
       ];
     }
 

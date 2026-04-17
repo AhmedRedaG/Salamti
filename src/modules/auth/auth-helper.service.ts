@@ -16,27 +16,7 @@ import { AuthAttemptConfig, OtpConfig } from '../../types/config.types';
 import { UsersService } from '../users/users.service';
 import { Prisma } from '../../../generated/prisma/client';
 import { RolesService } from '../roles/roles.service';
-
-export const LoginUserPayload = {
-  id: true,
-  fullName: true,
-  email: true,
-  phone: true,
-  isActive: true,
-  isVerified: true,
-  passwordHash: true,
-  googleId: true,
-  image: true,
-  role: {
-    select: {
-      id: true,
-      name: true,
-      canAccessWeb: true,
-      description: true,
-      isActive: true,
-    },
-  },
-};
+import { userLoginSelect } from '../users/constant/users.constant';
 
 @Injectable()
 export class AuthHelperService {
@@ -51,7 +31,7 @@ export class AuthHelperService {
   // return user in case of invalid password to increment login attempt
   async validateUserCredentials(email: string, password: string) {
     // check user exists and is active
-    const user = await this.userService.findOneByEmail(email, LoginUserPayload);
+    const user = await this.userService.findOneByEmail(email, userLoginSelect);
     if (!user || !user.isActive) {
       return { user: null, isValid: false };
     }

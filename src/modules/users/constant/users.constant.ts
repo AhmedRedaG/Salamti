@@ -16,3 +16,24 @@ export const userFindAllSelect: Prisma.UserSelect = {
     },
   },
 };
+
+export const userLoginSelect: Prisma.UserSelect = {
+  id: true,
+  fullName: true,
+  email: true,
+  phone: true,
+  isActive: true,
+  isVerified: true,
+  passwordHash: true,
+  googleId: true,
+  image: true,
+  role: {
+    select: {
+      id: true,
+      name: true,
+      canAccessWeb: true,
+      description: true,
+      isActive: true,
+    },
+  },
+};

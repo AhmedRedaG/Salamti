@@ -10,7 +10,7 @@ import {
   CreateUserGoogleRegisterType,
   JwtTypes,
 } from '../../types/auth.types';
-import { AuthHelperService, LoginUserPayload } from './auth-helper.service';
+import { AuthHelperService } from './auth-helper.service';
 import { VerifyOtp } from './dto/otp.dto';
 import { ResetPasswordDto } from './dto/reset.dto';
 import { UsersService } from '../users/users.service';
@@ -24,6 +24,7 @@ import { CreateUserRegisterType } from '../../types/auth.types';
 import { EmailService } from '../email/email.service';
 import { GoogleAuthService } from '../../integrations/google-auth/google-auth.service';
 import { AuthLoginDto, GoogleLoginDto } from './dto/login.dto';
+import { userLoginSelect } from '../users/constant/users.constant';
 
 @Injectable()
 export class AuthService {
@@ -38,8 +39,6 @@ export class AuthService {
 
   async register(role: CurrentRoles, dto: CreateUserRegisterType) {
     const { password, ...restData } = dto;
-
-    console.log(dto);
 
     const passwordHash = await this.authUtilsService.hashPassword(password);
 
@@ -62,11 +61,13 @@ export class AuthService {
     if (!user) {
       const data = await this.userService.create({
         role,
-        fullName: `${googleUser.firstName} ${googleUser.lastName}`,
+        isVerified: true,
         phone: dto.phone,
+        // google data
+        fullName: `${googleUser.firstName} ${googleUser.lastName}`,
         email: googleUser.email,
         googleId: googleUser.googleId,
-        isVerified: true,
+        // related roles data
         ...(dto.role === CurrentRoles.DRIVER && {
           age: dto.age,
           bloodType: dto.bloodType,
@@ -236,7 +237,7 @@ export class AuthService {
 
     const user = await this.userService.findOneByEmail(
       googleUser.email,
-      LoginUserPayload,
+      userLoginSelect,
     );
     if (!user) {
       throw new BadRequestException('auth.USER_NOT_REGISTERED');
