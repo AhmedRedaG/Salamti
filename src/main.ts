@@ -31,6 +31,7 @@ import cookieParser from 'cookie-parser';
 import { Logger } from 'nestjs-pino';
 import { Request, Response } from 'express';
 import { join } from 'node:path';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -40,6 +41,20 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   app.flushLogs();
 
+  // attach and start MQTT microservice
+  // note that iam not using TLS because my obu network module doesn't support it
+  // and its processing power is limited to apply encryption on the data
+  // in real world app i will use private mqtt with TLS
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.MQTT,
+    options: {
+      url: `mqtt://${process.env.MQTT_HOST}:${process.env.MQTT_PORT}`,
+      subscribeOptions: { qos: 1 },
+    },
+  });
+  await app.startAllMicroservices();
+
+  // set view engine
   app.setBaseViewsDir(join(__dirname, '..', 'views'));
   app.setViewEngine('ejs');
 
