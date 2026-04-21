@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { BloodType, CurrentRoles } from '../../../../generated/prisma/enums';
 import { IntersectionType } from '@nestjs/mapped-types';
+import { Transform } from 'class-transformer';
 
 class RegisterDto {
   @IsPhoneNumber()
@@ -48,6 +49,7 @@ class NormalAuthDto {
   fullName!: string;
 
   @IsEmail()
+  @Transform(({ value }) => value.toLowerCase().trim())
   email!: string;
 
   @IsStrongPassword()

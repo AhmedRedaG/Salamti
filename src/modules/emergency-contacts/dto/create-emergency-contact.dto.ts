@@ -8,6 +8,7 @@ import {
   Length,
 } from 'class-validator';
 import { Relationship } from '../../../../generated/prisma/enums';
+import { Transform } from 'class-transformer';
 
 export class CreateEmergencyContactDto {
   @IsString()
@@ -15,6 +16,7 @@ export class CreateEmergencyContactDto {
   fullName!: string;
 
   @IsEmail()
+  @Transform(({ value }) => value.toLowerCase().trim())
   email!: string;
 
   @IsPhoneNumber()

@@ -30,6 +30,7 @@ import {
   GoogleRegisterParamedicDto,
 } from './dto/register.dto';
 import { AuthLoginDto, GoogleLoginDto } from './dto/login.dto';
+import { VerifyDto } from './dto/verify.dto';
 
 @Public()
 @Controller('auth')
@@ -56,8 +57,8 @@ export class AuthController {
 
   @Get('verify/:verificationToken')
   @Render('verify-result')
-  verify(@Param('verificationToken') verificationToken: string) {
-    return this.authService.verify(verificationToken);
+  verify(@Param() dto: VerifyDto) {
+    return this.authService.verify(dto.verificationToken);
   }
 
   @Post('login')

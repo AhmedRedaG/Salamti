@@ -12,6 +12,7 @@ import {
   Min,
 } from 'class-validator';
 import { BloodType, CurrentRoles } from '../../../../generated/prisma/enums';
+import { Transform } from 'class-transformer';
 
 export class CreateUserDto {
   @IsOptional() // to drop it after role selection
@@ -23,6 +24,7 @@ export class CreateUserDto {
   fullName!: string;
 
   @IsEmail()
+  @Transform(({ value }) => value.toLowerCase().trim())
   email!: string;
 
   @IsPhoneNumber()
