@@ -38,9 +38,6 @@ export class ObuMqttService {
       action,
       ...payload,
     };
-
-    console.log(targetTopic, requestPayload);
-
     try {
       // firstValueFrom waits for the very first message with isDisposed: true
       const response = await firstValueFrom(
@@ -75,7 +72,7 @@ export class ObuMqttService {
         this.mqttClient.send(targetTopic, requestPayload).pipe(
           // collect all stream emissions into a single array
           toArray(),
-          timeout(1000 * 60 * 5), // history can be large and take time to transfer
+          timeout(1000 * 60 * 10), // history can be large and take time to transfer
           catchError((err) => {
             throw new RequestTimeoutException(
               `OBU chunk transfer timed out for '${action}'.`,

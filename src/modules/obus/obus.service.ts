@@ -414,6 +414,112 @@ export class ObusService {
     };
   }
 
+  async getHealth(userPayload: JwtPayload, obuId: string) {
+    const where: Prisma.ObuWhereInput = {
+      id: obuId,
+    };
+
+    if (userPayload.ur === CurrentRoles.DRIVER) {
+      where.driverId = userPayload.sub;
+    }
+
+    const obu = await this.findOrThrow(where, {
+      instNumber: true,
+      isValid: true,
+    });
+
+    if (!obu.isValid) {
+      throw new BadRequestException('obus.OBU_IS_NOT_VALID');
+    }
+
+    const topicName = this.obuMqttService.generatePublishTopicName(
+      obu.instNumber,
+    );
+
+    try {
+      const health = await this.obuMqttService.sendSingleCommand(
+        topicName,
+        ObuMqttCommands.HEALTH,
+      );
+      return {
+        success: true,
+        data: {
+          health,
+        },
+      };
+    } catch {
+      throw new BadRequestException('obus.CAN_NOT_GET_HEALTH_OF_THIS_OBU_NOW');
+    }
+  }
+
+  async getLocation(userPayload: JwtPayload, obuId: string) {
+    const where: Prisma.ObuWhereInput = {
+      id: obuId,
+    };
+
+    if (userPayload.ur === CurrentRoles.DRIVER) {
+      where.driverId = userPayload.sub;
+    }
+
+    const obu = await this.findOrThrow(where, {
+      instNumber: true,
+      isValid: true,
+    });
+
+    if (!obu.isValid) {
+      throw new BadRequestException('obus.OBU_IS_NOT_VALID');
+    }
+
+    const topicName = this.obuMqttService.generatePublishTopicName(
+      obu.instNumber,
+    );
+
+    try {
+      const location = await this.obuMqttService.sendSingleCommand(
+        topicName,
+        ObuMqttCommands.GPS,
+      );
+      return {
+        success: true,
+        data: {
+          location,
+        },
+      };
+    } catch {
+      throw new BadRequestException(
+        'obus.CAN_NOT_GET_LOCATION_OF_THIS_OBU_NOW',
+      );
+    }
+  }
+
+  async getHistory(obuId: string) {
+    const obu = await this.findOrThrow(
+      { id: obuId },
+      {
+        instNumber: true,
+      },
+    );
+
+    const topicName = this.obuMqttService.generatePublishTopicName(
+      obu.instNumber,
+    );
+
+    try {
+      const history = await this.obuMqttService.requestChunkedData(
+        topicName,
+        ObuMqttCommands.HISTORY,
+      );
+      return {
+        success: true,
+        data: {
+          history,
+        },
+      };
+    } catch {
+      throw new BadRequestException('obus.CAN_NOT_GET_HISTORY_OF_THIS_OBU_NOW');
+    }
+  }
+
   // ================= helper methods =================
 
   async checkConflict(

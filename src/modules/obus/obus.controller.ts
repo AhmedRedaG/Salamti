@@ -108,27 +108,27 @@ export class ObusController {
     return this.obusService.deactivate(userId, id);
   }
 
-  // @Roles(CurrentRoles.ADMIN, CurrentRoles.DRIVER)
-  // @Get(':id/health')
-  // getHealth(
-  //   @CurrentUser() userPayload: JwtPayload,
-  //   @Param('id', ParseUUIDPipe) id: string,
-  // ) {
-  //   return this.obusService.getHealth(userPayload, id);
-  // }
+  @Roles(CurrentRoles.ADMIN, CurrentRoles.DRIVER)
+  @Get(':id/health')
+  getHealth(
+    @CurrentUser() userPayload: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.obusService.getHealth(userPayload, id);
+  }
 
-  // @Roles(CurrentRoles.ADMIN, CurrentRoles.DRIVER)
-  // @Get(':id/location')
-  // getLocation(
-  //   @CurrentUser() userPayload: JwtPayload,
-  //   @Param('id', ParseUUIDPipe) id: string,
-  // ) {
-  //   return this.obusService.getLocation(userPayload, id);
-  // }
+  @Roles(CurrentRoles.ADMIN, CurrentRoles.DRIVER)
+  @Get(':id/location')
+  getLocation(
+    @CurrentUser() userPayload: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.obusService.getLocation(userPayload, id);
+  }
 
-  // @Roles(CurrentRoles.ADMIN)
-  // @Get(':id/history')
-  // getHistory(@Param('id', ParseUUIDPipe) id: string) {
-  //   return this.obusService.getHistory(userPayload, id);
-  // }
+  @Roles(CurrentRoles.ADMIN)
+  @Get(':id/history')
+  getHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.obusService.getHistory(id);
+  }
 }
