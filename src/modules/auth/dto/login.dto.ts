@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsJWT,
@@ -23,6 +24,7 @@ class LoginDto {
 
 export class AuthLoginDto extends LoginDto {
   @IsEmail()
+  @Transform(({ value }) => value.toLowerCase().trim())
   email!: string;
 
   @IsStrongPassword()

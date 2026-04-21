@@ -16,7 +16,7 @@ export class NotificationController {
 
   @Get()
   getMyNotifications(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('sub') userId: string,
     @Query() pagination: PaginationQueryFilter,
     @Query('unreadOnly') unreadOnly?: string,
   ) {
@@ -30,20 +30,20 @@ export class NotificationController {
   }
 
   @Get('unread-count')
-  getUnreadCount(@CurrentUser('id') userId: string) {
+  getUnreadCount(@CurrentUser('sub') userId: string) {
     return this.notificationService.getUnreadCount(userId);
   }
 
   @Patch(':id/read')
   markAsRead(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('sub') userId: string,
     @Param('id', ParseUUIDPipe) notificationId: string,
   ) {
     return this.notificationService.markAsRead(userId, notificationId);
   }
 
   @Patch('read-all')
-  markAllAsRead(@CurrentUser('id') userId: string) {
+  markAllAsRead(@CurrentUser('sub') userId: string) {
     return this.notificationService.markAllAsRead(userId);
   }
 }
