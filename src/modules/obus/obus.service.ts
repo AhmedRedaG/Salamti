@@ -19,6 +19,8 @@ import { Prisma } from '../../../generated/prisma/client';
 import { obuFindOneInclude } from './constant/obus.constant';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { UsersService } from '../users/users.service';
+import { ObuMqttService } from '../obu-mqtt/obu-mqtt.service';
+import { ObuMqttCommands } from '../../types/obu-mqtt.types';
 
 @Injectable()
 export class ObusService {
@@ -28,6 +30,7 @@ export class ObusService {
     private readonly prismaService: PrismaService,
     private readonly vehiclesService: VehiclesService,
     private readonly usersService: UsersService,
+    private readonly obuMqttService: ObuMqttService,
   ) {}
 
   async create(dto: CreateObuDto) {
@@ -128,7 +131,7 @@ export class ObusService {
         id: obuId,
         driverId: userId,
       },
-      { id: true, vehicleId: true, isValid: true },
+      { id: true, vehicleId: true, isValid: true, status: true },
     );
 
     if (!obu.isValid) {
@@ -137,6 +140,11 @@ export class ObusService {
 
     if (!obu.vehicleId) {
       throw new BadRequestException('obus.OBU_IS_NOT_CONNECTED_TO_VEHICLE');
+    }
+
+    // need user first to deactivate the obi
+    if (obu.status === ObuStatus.ACTIVE) {
+      throw new BadRequestException('obus.OBU_IS_ACTIVE');
     }
 
     const updatedObu = await this.prismaService.obu.update({
@@ -310,6 +318,96 @@ export class ObusService {
     }
 
     this.logger.log(`deleted obu id: ${obuId}`);
+
+    return {
+      success: true,
+    };
+  }
+
+  async activate(userId: string, obuId: string) {
+    const obu = await this.findOrThrow(
+      {
+        id: obuId,
+        driverId: userId,
+      },
+      {
+        instNumber: true,
+        isValid: true,
+        vehicleId: true,
+      },
+    );
+
+    if (!obu.isValid) {
+      throw new BadRequestException('obus.OBU_IS_NOT_VALID');
+    }
+
+    if (!obu.vehicleId) {
+      throw new BadRequestException('obus.OBU_IS_NOT_CONNECTED_TO_VEHICLE');
+    }
+
+    const topicName = this.obuMqttService.generatePublishTopicName(
+      obu.instNumber,
+    );
+
+    // send command to obu to activate it
+    // and if it fails or no response from obu throw error
+    try {
+      await this.obuMqttService.sendSingleCommand(
+        topicName,
+        ObuMqttCommands.ACTIVATE,
+      );
+    } catch {
+      throw new BadRequestException('obus.CAN_NOT_ACTIVATE_THIS_OBU_NOW');
+    }
+
+    // update obu status to active
+    await this.prismaService.obu.update({
+      where: { id: obuId },
+      data: { status: ObuStatus.ACTIVE },
+    });
+
+    return {
+      success: true,
+    };
+  }
+
+  async deactivate(userId: string, obuId: string) {
+    const obu = await this.findOrThrow(
+      {
+        id: obuId,
+        driverId: userId,
+      },
+      {
+        instNumber: true,
+        isValid: true,
+        vehicleId: true,
+      },
+    );
+
+    if (!obu.isValid) {
+      throw new BadRequestException('obus.OBU_IS_NOT_VALID');
+    }
+
+    const topicName = this.obuMqttService.generatePublishTopicName(
+      obu.instNumber,
+    );
+
+    // send command to obu to deactivate it
+    // and if it fails or no response from obu throw error
+    try {
+      await this.obuMqttService.sendSingleCommand(
+        topicName,
+        ObuMqttCommands.DEACTIVATE,
+      );
+    } catch {
+      throw new BadRequestException('obus.CAN_NOT_DEACTIVATE_THIS_OBU_NOW');
+    }
+
+    // update obu status to ready
+    await this.prismaService.obu.update({
+      where: { id: obuId },
+      data: { status: ObuStatus.READY },
+    });
 
     return {
       success: true,

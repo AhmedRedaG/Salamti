@@ -27,8 +27,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { ObusModule } from './modules/obus/obus.module';
 import { ParamedicsModule } from './modules/paramedics/paramedics.module';
 import { DriversModule } from './modules/drivers/drivers.module';
-import { ClientsModule, Transport } from '@nestjs/microservices';
-const MQTT_CLIENT_NAME = appConfig().mqtt.clientName;
+import { ObuMqttModule } from './modules/obu-mqtt/obu-mqtt.module';
 
 @Module({
   imports: [
@@ -161,23 +160,6 @@ const MQTT_CLIENT_NAME = appConfig().mqtt.clientName;
       }),
     }),
 
-    // note that iam not using TLS because my obu network module doesn't support it
-    // and its processing power is limited to apply encryption on the data
-    // in real world app i will use private mqtt with TLS
-    ClientsModule.registerAsync([
-      {
-        name: MQTT_CLIENT_NAME,
-        inject: [ConfigService],
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.MQTT,
-          options: {
-            url: `mqtt://${configService.get('mqtt.host')}:${configService.get('mqtt.port')}`,
-            subscribeOptions: { qos: 1 },
-          },
-        }),
-      },
-    ]),
-
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -194,6 +176,7 @@ const MQTT_CLIENT_NAME = appConfig().mqtt.clientName;
     ObusModule,
     ParamedicsModule,
     DriversModule,
+    ObuMqttModule,
   ],
   controllers: [AppController],
   providers: [
