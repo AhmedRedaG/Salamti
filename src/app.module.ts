@@ -27,6 +27,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { ObusModule } from './modules/obus/obus.module';
 import { ParamedicsModule } from './modules/paramedics/paramedics.module';
 import { DriversModule } from './modules/drivers/drivers.module';
+import { ObuMqttModule } from './modules/obu-mqtt/obu-mqtt.module';
 
 @Module({
   imports: [
@@ -175,6 +176,7 @@ import { DriversModule } from './modules/drivers/drivers.module';
     ObusModule,
     ParamedicsModule,
     DriversModule,
+    ObuMqttModule,
   ],
   controllers: [AppController],
   providers: [

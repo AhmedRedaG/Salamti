@@ -113,4 +113,11 @@ export default () => ({
     senderEmail: process.env.SENDER_MAIL || process.env.SERVER_MAIL,
     supportEmail: process.env.SUPPORT_MAIL || process.env.SERVER_MAIL,
   },
+
+  mqtt: {
+    clientName: 'HIVEMQ_CLIENT',
+    baseTopic: 'a4a489b0-6237-4dd7-a012-a8b792ec4841/salamti/obu/',
+    host: process.env.MQTT_HOST,
+    port: +process.env.MQTT_PORT!,
+  },
 });
