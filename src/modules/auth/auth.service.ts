@@ -52,29 +52,21 @@ export class AuthService {
   }
 
   async googleRegister(role: CurrentRoles, dto: CreateUserGoogleRegisterType) {
+    const { googleToken, ...restData } = dto;
+
     // verify and get google user data
-    const googleUser = await this.googleAuthService.verifyGoogleToken(
-      dto.googleToken,
-    );
+    const googleUser =
+      await this.googleAuthService.verifyGoogleToken(googleToken);
 
     const user = await this.userService.findOneByEmail(googleUser.email);
     if (!user) {
       const data = await this.userService.create({
-        role,
+        ...restData,
         isVerified: true,
-        phone: dto.phone,
-        // google data
         fullName: `${googleUser.firstName} ${googleUser.lastName}`,
         email: googleUser.email,
         googleId: googleUser.googleId,
-        // related roles data
-        ...(dto.role === CurrentRoles.DRIVER && {
-          age: dto.age,
-          bloodType: dto.bloodType,
-        }),
-        ...(dto.role === CurrentRoles.PARAMEDIC && {
-          employeeId: dto.employeeId,
-        }),
+        role,
       });
 
       return data;
