@@ -45,7 +45,7 @@ model User {
   roleId            String    @map("role_id") @db.Uuid
   fullName          String    @map("full_name") @db.VarChar(100)
   email             String    @unique @db.VarChar(150)
-  phone             String    @db.VarChar(20)
+  phone             String    @unique @db.VarChar(20)
   passwordHash      String?   @map("password_hash") @db.VarChar(255)
   googleId          String?   @unique @map("google_id") @db.VarChar(50)
   isActive          Boolean   @default(true) @map("is_active")
@@ -67,7 +67,6 @@ model User {
   sentNotifications     Notification[] @relation("SentNotifications")
 
   @@index([roleId])
-  @@index([email])
   @@index([googleId])
   @@index([isActive])
   @@index([isVerified])
