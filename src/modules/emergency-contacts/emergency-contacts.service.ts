@@ -157,7 +157,7 @@ export class EmergencyContactsService {
       const emailToCheck = dto.email || contact.email;
       const phoneToCheck = dto.phone || contact.phone;
 
-      await this.checkConflict(userId, emailToCheck, phoneToCheck);
+      await this.checkConflict(userId, emailToCheck, phoneToCheck, contactId);
     }
 
     const updatedContact = await this.prismaService.emergencyContact.update({
@@ -193,17 +193,22 @@ export class EmergencyContactsService {
 
   // ================= helper methods =================
 
-  async checkConflict(driverId: string, email: string, phone: string) {
-    const existingContact =
-      await this.prismaService.emergencyContact.findUnique({
+  async checkConflict(
+    driverId: string,
+    email: string,
+    phone: string,
+    excludeId?: string,
+  ) {
+    const existingContact = await this.prismaService.emergencyContact.findFirst(
+      {
         where: {
-          driverId_email_phone: {
-            driverId,
-            email,
-            phone,
-          },
+          driverId,
+          email,
+          phone,
+          ...(excludeId && { id: { not: excludeId } }),
         },
-      });
+      },
+    );
     if (existingContact) {
       throw new ConflictException('emergency-contacts.CONTACT_ALREADY_EXISTS');
     }
