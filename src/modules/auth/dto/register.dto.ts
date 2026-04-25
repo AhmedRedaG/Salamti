@@ -4,18 +4,25 @@ import {
   IsJWT,
   IsNotEmpty,
   IsNumber,
-  IsPhoneNumber,
   IsString,
   IsStrongPassword,
   Length,
+  Matches,
   Min,
 } from 'class-validator';
 import { BloodType, CurrentRoles } from '../../../../generated/prisma/enums';
 import { IntersectionType } from '@nestjs/mapped-types';
 import { Transform } from 'class-transformer';
+import appConfig from '../../../config/app.config';
+
+const phoneConfig = appConfig().phone;
+const PHONE_REGEX = phoneConfig.regex;
+const PHONE_MESSAGE = phoneConfig.message;
 
 class RegisterDto {
-  @IsPhoneNumber()
+  @IsNotEmpty()
+  @IsString()
+  @Matches(PHONE_REGEX, { message: PHONE_MESSAGE })
   phone!: string;
 }
 

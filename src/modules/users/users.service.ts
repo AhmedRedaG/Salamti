@@ -38,11 +38,8 @@ export class UsersService {
   ) {}
 
   async create(dto: CreateUserDto) {
-    // check if user already exists by email
-    const existedUser = await this.findOneByEmail(dto.email, { id: true });
-    if (existedUser) {
-      throw new ConflictException('users.USER_ALREADY_EXISTS');
-    }
+    // check if user already exists by email or phone
+    await this.checkConflict(dto.email, dto.phone);
 
     // extract role name and other data
     const { role: roleName, age, bloodType, employeeId, ...initData } = dto;
@@ -261,7 +258,7 @@ export class UsersService {
   ) {
     const user = await this.findOrThrow(
       { id: targetUserId },
-      { id: true, email: true },
+      { id: true, email: true, phone: true },
     );
 
     // check if user is authorized to update
@@ -273,11 +270,13 @@ export class UsersService {
     }
 
     // check if email already exists
-    if (dto.email && dto.email !== user.email) {
-      const existedUser = await this.findOneByEmail(dto.email);
-      if (existedUser) {
-        throw new ConflictException('users.USER_ALREADY_EXISTS_WITH_EMAIL');
-      }
+    if (
+      (dto.email && dto.email !== user.email) ||
+      (dto.phone && dto.phone !== user.phone)
+    ) {
+      const email = dto.email || user.email;
+      const phone = dto.phone || user.phone;
+      await this.checkConflict(email, phone, targetUserId);
     }
 
     const updatedUser = await this.prismaService.user.update({
@@ -383,6 +382,21 @@ export class UsersService {
       )
         throw new NotFoundException('users.USER_NOT_FOUND');
       throw error;
+    }
+  }
+
+  async checkConflict(email: string, phone: string, excludeId?: string) {
+    const existingUser = await this.prismaService.user.findFirst({
+      where: {
+        OR: [{ email }, { phone }],
+        ...(excludeId && { id: { not: excludeId } }),
+      },
+    });
+    if (existingUser) {
+      if (existingUser.email === email) {
+        throw new ConflictException('users.EMAIL_ALREADY_EXISTS');
+      }
+      throw new ConflictException('users.PHONE_ALREADY_EXISTS');
     }
   }
 

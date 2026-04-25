@@ -123,8 +123,9 @@ export class VehiclesService {
       { licensePlate: true },
     );
 
+    // check if license plate is changed
     if (dto.licensePlate && dto.licensePlate !== vehicle.licensePlate) {
-      await this.checkConflict(dto.licensePlate);
+      await this.checkConflict(dto.licensePlate, vehicleId);
     }
 
     const updatedVehicle = await this.prismaService.vehicle.update({
@@ -169,9 +170,9 @@ export class VehiclesService {
 
   // ================= helper methods =================
 
-  async checkConflict(licensePlate: string) {
-    const existingVehicle = await this.prismaService.vehicle.findUnique({
-      where: { licensePlate },
+  async checkConflict(licensePlate: string, excludeId?: string) {
+    const existingVehicle = await this.prismaService.vehicle.findFirst({
+      where: { licensePlate, ...(excludeId && { id: { not: excludeId } }) },
     });
     if (existingVehicle) {
       throw new ConflictException('vehicles.LICENSE_PLATE_ALREADY_EXISTS');

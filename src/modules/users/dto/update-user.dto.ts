@@ -2,10 +2,15 @@ import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsOptional,
-  IsPhoneNumber,
   IsString,
   Length,
+  Matches,
 } from 'class-validator';
+import appConfig from '../../../config/app.config';
+
+const phoneConfig = appConfig().phone;
+const PHONE_REGEX = phoneConfig.regex;
+const PHONE_MESSAGE = phoneConfig.message;
 
 export class UpdateUserDto {
   @IsOptional()
@@ -19,6 +24,7 @@ export class UpdateUserDto {
   email?: string;
 
   @IsOptional()
-  @IsPhoneNumber()
+  @IsString()
+  @Matches(PHONE_REGEX, { message: PHONE_MESSAGE })
   phone?: string;
 }
