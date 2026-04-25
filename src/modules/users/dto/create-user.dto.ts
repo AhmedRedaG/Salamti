@@ -3,16 +3,22 @@ import {
   IsEmail,
   IsEnum,
   IsJWT,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsPhoneNumber,
   IsString,
   Length,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
 import { BloodType, CurrentRoles } from '../../../../generated/prisma/enums';
 import { Transform } from 'class-transformer';
+import appConfig from '../../../config/app.config';
+
+const phoneConfig = appConfig().phone;
+const PHONE_REGEX = phoneConfig.regex;
+const PHONE_MESSAGE = phoneConfig.message;
 
 export class CreateUserDto {
   @IsOptional() // to drop it after role selection
@@ -27,7 +33,9 @@ export class CreateUserDto {
   @Transform(({ value }) => value.toLowerCase().trim())
   email!: string;
 
-  @IsPhoneNumber()
+  @IsNotEmpty()
+  @IsString()
+  @Matches(PHONE_REGEX, { message: PHONE_MESSAGE })
   phone!: string;
 
   @IsOptional()

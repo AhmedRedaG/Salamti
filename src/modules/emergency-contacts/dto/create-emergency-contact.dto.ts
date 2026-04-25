@@ -2,13 +2,19 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsNotEmpty,
   IsOptional,
-  IsPhoneNumber,
   IsString,
   Length,
+  Matches,
 } from 'class-validator';
 import { Relationship } from '../../../../generated/prisma/enums';
 import { Transform } from 'class-transformer';
+import appConfig from '../../../config/app.config';
+
+const phoneConfig = appConfig().phone;
+const PHONE_REGEX = phoneConfig.regex;
+const PHONE_MESSAGE = phoneConfig.message;
 
 export class CreateEmergencyContactDto {
   @IsString()
@@ -19,7 +25,9 @@ export class CreateEmergencyContactDto {
   @Transform(({ value }) => value.toLowerCase().trim())
   email!: string;
 
-  @IsPhoneNumber()
+  @IsNotEmpty()
+  @IsString()
+  @Matches(PHONE_REGEX, { message: PHONE_MESSAGE })
   phone!: string;
 
   @IsEnum(Relationship)

@@ -120,4 +120,9 @@ export default () => ({
     host: process.env.MQTT_HOST,
     port: +process.env.MQTT_PORT!,
   },
+
+  phone: {
+    regex: /^\+201[0125][0-9]{8}$/,
+    message: 'invalid egyptian phone number',
+  },
 });

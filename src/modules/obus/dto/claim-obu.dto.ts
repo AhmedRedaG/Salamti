@@ -1,5 +1,10 @@
 import { Transform } from 'class-transformer';
-import { IsPhoneNumber, IsString, Length } from 'class-validator';
+import { IsNotEmpty, IsString, Length, Matches } from 'class-validator';
+import appConfig from '../../../config/app.config';
+
+const phoneConfig = appConfig().phone;
+const PHONE_REGEX = phoneConfig.regex;
+const PHONE_MESSAGE = phoneConfig.message;
 
 export class ClaimObuDto {
   @IsString()
@@ -7,6 +12,8 @@ export class ClaimObuDto {
   @Transform(({ value }) => value.toUpperCase().trim())
   instNumber!: string;
 
-  @IsPhoneNumber()
+  @IsNotEmpty()
+  @IsString()
+  @Matches(PHONE_REGEX, { message: PHONE_MESSAGE })
   simCardNumber!: string;
 }
