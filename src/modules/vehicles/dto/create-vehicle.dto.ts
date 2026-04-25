@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { IsInt, IsString, Length, Max, Min } from 'class-validator';
 
 export class CreateVehicleDto {
@@ -20,5 +21,6 @@ export class CreateVehicleDto {
 
   @IsString()
   @Length(1, 50)
+  @Transform(({ value }) => value.toLowerCase().trim())
   licensePlate!: string;
 }
