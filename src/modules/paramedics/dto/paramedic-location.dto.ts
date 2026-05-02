@@ -2,8 +2,8 @@ import { IsLatitude, IsLongitude } from 'class-validator';
 
 export class ParamedicLocationDto {
   @IsLongitude()
-  longitude!: number;
+  gpsLongitude!: number;
 
   @IsLatitude()
-  latitude!: number;
+  gpsLatitude!: number;
 }

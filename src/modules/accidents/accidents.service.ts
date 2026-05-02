@@ -122,7 +122,7 @@ export class AccidentsService {
     this.logger.log(`accident ${accident.id} canceled`);
   }
 
-  async confirmAccident(accidentId: string) {
+  async confirmAccident(accidentId: string): Promise<boolean> {
     const accident = await this.prismaService.accident.findUnique({
       where: { id: accidentId, status: AccidentStatus.RECORDED },
       select: { id: true },
@@ -130,7 +130,7 @@ export class AccidentsService {
 
     if (!accident) {
       this.logger.warn(`accident ${accidentId} not found or not recorded`);
-      return;
+      return false;
     }
 
     await this.prismaService.accident.update({
@@ -139,6 +139,7 @@ export class AccidentsService {
     });
 
     this.logger.log(`accident ${accidentId} confirmed`);
+    return true;
   }
 
   // =============== helper functions ===============

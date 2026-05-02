@@ -9,17 +9,12 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import {
-  Logger,
-  ParseEnumPipe,
-  ParseUUIDPipe,
-  UseGuards,
-} from '@nestjs/common';
+import { Logger, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
 import { WsJwtGuard } from '../../common/guards/ws-jwt.guard';
-import { ParamedicStatus } from '../../../generated/prisma/client';
 import { CurrentWsUser } from '../../common/decorators/current-ws-user.decorator';
-import { ParamedicLocationDto } from './dto/available-paramedic.dto';
+import { ParamedicsService } from '../paramedics/paramedics.service';
+import { ParamedicLocationDto } from '../paramedics/dto/paramedic-location.dto';
 
 @WebSocketGateway({
   cors: {
@@ -35,7 +30,10 @@ export class DispatchGateway
   @WebSocketServer()
   server!: Server;
 
-  constructor(private readonly dispatchService: DispatchService) {}
+  constructor(
+    private readonly dispatchService: DispatchService,
+    private readonly paramedicsService: ParamedicsService,
+  ) {}
 
   afterInit(server: Server) {
     this.logger.log('dispatch websocket gateway initialized');
@@ -67,25 +65,28 @@ export class DispatchGateway
     @MessageBody() dto: ParamedicLocationDto,
     @CurrentWsUser('sub') userId: string,
   ) {
-    return this.dispatchService.updateParamedicLocation(
-      userId,
-      dto.longitude,
-      dto.latitude,
-    );
+    return this.paramedicsService.updateParamedicLocation(userId, dto);
+  }
+
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('paramedic:available')
+  paramedicAvailable(
+    @MessageBody() dto: ParamedicLocationDto,
+    @CurrentWsUser('sub') userId: string,
+  ) {
+    return this.paramedicsService.paramedicAvailable(userId, dto);
+  }
+
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('paramedic:unavailable')
+  paramedicUnavailable(@CurrentWsUser('sub') userId: string) {
+    return this.paramedicsService.paramedicUnavailable(userId);
   }
 
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('paramedic:status')
-  async handleParamedicStatus(
-    @ConnectedSocket() client: Socket,
-    @MessageBody(
-      'status',
-      new ParseEnumPipe({ enum: ParamedicStatus, optional: true }),
-    )
-    status: ParamedicStatus | undefined,
-    @CurrentWsUser('sub') userId: string,
-  ) {
-    return this.dispatchService.updateParamedicStatus(userId, status);
+  async getParamedicStatus(@CurrentWsUser('sub') userId: string) {
+    return this.paramedicsService.getParamedicStatus(userId);
   }
 
   @UseGuards(WsJwtGuard)

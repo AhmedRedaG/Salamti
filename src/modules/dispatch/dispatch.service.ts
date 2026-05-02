@@ -4,7 +4,6 @@ import { PrismaService } from '../../core/database/prisma/prisma.service';
 import {
   AccidentStatus,
   ParamedicStatus,
-  Prisma,
   PatientStatus,
 } from '../../../generated/prisma/client';
 import { getLongLat, orderByDistance } from '../../common/utils/postgis.utils';
@@ -42,32 +41,8 @@ export class DispatchService {
     }
   }
 
-  async updateParamedicLocation(paramedicId: string, lng: number, lat: number) {
-    // We update the DB via Prisma using the same logic as ParamedicsService
-    await this.prismaService.$executeRaw(Prisma.sql`
-      UPDATE "paramedics"
-      SET "location" = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)
-      WHERE "id" = ${paramedicId}
-    `);
-    this.logger.log(
-      `Paramedic ${paramedicId} location updated to ${lng}, ${lat}`,
-    );
-  }
-
-  async updateParamedicStatus(
-    paramedicId: string,
-    status: ParamedicStatus | undefined,
-  ) {
-    const paramedic = await this.prismaService.paramedic.update({
-      where: { id: paramedicId },
-      data: { status },
-    });
-    this.logger.log(`Paramedic ${paramedicId} status updated to ${status}`);
-    return { success: true, data: { paramedic } };
-  }
-
   async handleConfirmedAccident(accidentId: string) {
-    this.logger.log(`Handling confirmed accident dispatch: ${accidentId}`);
+    this.logger.log(`handling confirmed accident dispatch: ${accidentId}`);
 
     // get accident details and location
     const accidentLocationResult = (await this.prismaService.$queryRaw`
@@ -86,12 +61,12 @@ export class DispatchService {
     // get available paramedics ordered by distance
     const availableParamedics = (await this.prismaService.$queryRaw`
       SELECT 
-        p.id AS "id",
-        p.status AS "status",
-        ${orderByDistance('p.location', longitude, latitude)} AS "distance"
-      FROM "paramedics" AS p
-      WHERE p.status = 'available'
-        AND p.location IS NOT NULL
+        id,
+        status,
+        ${orderByDistance('location', longitude, latitude)} AS "distance"
+      FROM "paramedics"
+      WHERE status = 'available'
+        AND location IS NOT NULL
       ORDER BY "distance"
       LIMIT 10
     `) as any[];
@@ -100,7 +75,7 @@ export class DispatchService {
       this.logger.warn(
         `no available paramedics found for accident ${accidentId}`,
       );
-      return;
+      return { success: false };
     }
 
     // emit 'accident:confirmed' to the connected ones among the top available
@@ -120,12 +95,11 @@ export class DispatchService {
         });
       }
     }
+
+    return { success: true };
   }
 
-  async acceptAccident(
-    paramedicId: string,
-    accidentId: string,
-  ): Promise<boolean> {
+  async acceptAccident(paramedicId: string, accidentId: string) {
     this.logger.log(
       `paramedic ${paramedicId} attempting to accept accident ${accidentId}`,
     );
@@ -146,7 +120,7 @@ export class DispatchService {
       this.logger.log(
         `accident ${accidentId} already taken or not confirmed. paramedic ${paramedicId} failed to accept.`,
       );
-      return false;
+      return { success: false };
     }
 
     // create accident response
@@ -179,6 +153,6 @@ export class DispatchService {
       this.server.emit('accident:taken', { accidentId });
     }
 
-    return true;
+    return { success: true };
   }
 }
