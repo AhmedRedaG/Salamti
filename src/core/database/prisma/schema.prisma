@@ -107,7 +107,7 @@ model Driver {
   user              User               @relation(fields: [id], references: [id], onDelete: Cascade)
   emergencyContacts EmergencyContact[]
   vehicles          Vehicle[]
-  incidents         Incident[]
+  accidents         Accident[]
   obus              Obu[]
 
   @@map("drivers")
@@ -129,7 +129,7 @@ model Paramedic {
   createdAt    DateTime                               @default(now()) @map("created_at")
 
   user              User               @relation(fields: [id], references: [id], onDelete: Cascade)
-  incidentResponses IncidentResponse[]
+  accidentResponses AccidentResponse[]
 
   @@index([status, isAuthorized])
   @@map("paramedics")
@@ -246,7 +246,7 @@ model Vehicle {
 
   driver    Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
   obus      Obu[]
-  incidents Incident[]
+  accidents Accident[]
 
   @@index([driverId])
   @@index([licensePlate(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicle_license_plate_gin_idx")
@@ -278,7 +278,7 @@ model Obu {
 
   driver    Driver?    @relation(fields: [driverId], references: [id], onDelete: SetNull)
   vehicle   Vehicle?   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  incidents Incident[]
+  accidents Accident[]
 
   @@index([driverId])
   @@index([vehicleId])
@@ -290,22 +290,22 @@ model Obu {
 }
 
 // ==========================================
-// INCIDENTS
+// ACCIDENTS
 // ==========================================
 
-enum IncidentType {
-  INCIDENTS @map("incidents")
+enum AccidentType {
+  ACCIDENTS @map("accidents")
   SOS       @map("sos")
 }
 
-enum IncidentLevel {
+enum AccidentLevel {
   HIGH    @map("high")
   MEDIUM  @map("medium")
   LOW     @map("low")
   UNKNOWN @map("unknown")
 }
 
-enum IncidentStatus {
+enum AccidentStatus {
   RECORDED    @map("recorded")
   CANCELED    @map("canceled")
   CONFIRMED   @map("confirmed")
@@ -314,28 +314,28 @@ enum IncidentStatus {
   FAILED      @map("failed")
 }
 
-model Incident {
-  id        String                                @id @default(uuid()) @db.Uuid
-  driverId  String                                @map("driver_id") @db.Uuid
-  vehicleId String                                @map("vehicle_id") @db.Uuid
-  obuId     String                                @map("obu_id") @db.Uuid
+model Accident {
+  id        String                                 @id @default(uuid()) @db.Uuid
+  driverId  String                                 @map("driver_id") @db.Uuid
+  vehicleId String                                 @map("vehicle_id") @db.Uuid
+  obuId     String                                 @map("obu_id") @db.Uuid
   time      DateTime
-  location  Unsupported("geography(Point, 4326)")
-  type      IncidentType
-  level     IncidentLevel
-  status    IncidentStatus
-  createdAt DateTime                              @default(now()) @map("created_at")
+  location  Unsupported("geography(Point, 4326)")?
+  type      AccidentType
+  level     AccidentLevel
+  status    AccidentStatus                         @default(RECORDED)
+  createdAt DateTime                               @default(now()) @map("created_at")
 
   driver            Driver               @relation(fields: [driverId], references: [id])
   vehicle           Vehicle              @relation(fields: [vehicleId], references: [id])
   obu               Obu                  @relation(fields: [obuId], references: [id])
-  incidentResponses IncidentResponse[]
-  sensorData        IncidentSensorData[]
+  accidentResponses AccidentResponse[]
+  sensorData        AccidentSensorData[]
 
   @@index([driverId])
   @@index([vehicleId])
   @@index([obuId])
-  @@map("incidents")
+  @@map("accidents")
 }
 
 enum ResponseStatus {
@@ -354,39 +354,40 @@ enum PatientStatus {
   UNKNOWN  @map("unknown")
 }
 
-model IncidentResponse {
+model AccidentResponse {
   id                     String         @id @default(uuid()) @db.Uuid
-  incidentId             String         @map("incident_id") @db.Uuid
+  accidentId             String         @map("accident_id") @db.Uuid
   paramedicId            String         @map("paramedic_id") @db.Uuid
-  responseStatus         ResponseStatus @map("response_status")
-  dispatchedAt           DateTime?      @map("dispatched_at")
+  responseStatus         ResponseStatus @default(DISPATCHED) @map("response_status")
+  dispatchedAt           DateTime       @default(now()) @map("dispatched_at")
   arrivedAt              DateTime?      @map("arrived_at")
   completedAt            DateTime?      @map("completed_at")
   paramedicObservations  String?        @map("paramedic_observations") @db.VarChar(150)
   transportingToHospital String?        @map("transporting_to_hospital") @db.VarChar(150)
   patientStatus          PatientStatus  @map("patient_status")
 
-  incident  Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  accident  Accident  @relation(fields: [accidentId], references: [id], onDelete: Cascade)
   paramedic Paramedic @relation(fields: [paramedicId], references: [id])
 
-  @@index([incidentId])
+  @@index([accidentId])
   @@index([paramedicId])
-  @@map("incident_response")
+  @@map("accident_response")
 }
 
-model IncidentSensorData {
-  id            String   @id @default(uuid()) @db.Uuid
-  incidentId    String   @map("incident_id") @db.Uuid
-  gps           Json?
-  gyroscope     Json?
-  temperature   Json?
-  accelerometer Json?
-  createdAt     DateTime @default(now()) @map("created_at")
+model AccidentSensorData {
+  id         String   @id @default(uuid()) @db.Uuid
+  accidentId String   @map("accident_id") @db.Uuid
+  lat        Decimal  @db.Decimal(10, 7)
+  lng        Decimal  @db.Decimal(10, 7)
+  peakG      Int?     @map("peak_g")
+  gyroX      Int?     @map("gyro_x")
+  gyroY      Int?     @map("gyro_y")
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  accident Accident @relation(fields: [accidentId], references: [id], onDelete: Cascade)
 
-  @@index([incidentId])
-  @@map("incident_sensor_data")
+  @@index([accidentId])
+  @@map("accident_sensor_data")
 }
 
 // ==========================================

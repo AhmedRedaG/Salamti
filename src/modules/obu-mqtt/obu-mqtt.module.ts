@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ObuMqttService } from './obu-mqtt.service';
 import { ObuMqttController } from './obu-mqtt.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import appConfig from '../../config/app.config';
 import { ConfigService } from '@nestjs/config';
+import { AccidentsModule } from '../accidents/accidents.module';
 
 const mqttConfig = appConfig().mqtt;
 const MQTT_CLIENT_NAME = mqttConfig.clientName;
@@ -26,6 +27,7 @@ const MQTT_CLIENT_NAME = mqttConfig.clientName;
         }),
       },
     ]),
+    forwardRef(() => AccidentsModule),
   ],
   controllers: [ObuMqttController],
   providers: [ObuMqttService],

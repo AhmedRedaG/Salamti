@@ -3,4 +3,5 @@ export enum QueueNames {
   NOTIFICATION = 'notification',
   SMS = 'sms',
   EMAIL = 'email',
+  ACCIDENT = 'accident',
 }

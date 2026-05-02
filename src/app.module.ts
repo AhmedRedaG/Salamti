@@ -28,6 +28,8 @@ import { ObusModule } from './modules/obus/obus.module';
 import { ParamedicsModule } from './modules/paramedics/paramedics.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { ObuMqttModule } from './modules/obu-mqtt/obu-mqtt.module';
+import { AccidentsModule } from './modules/accidents/accidents.module';
+import { DispatchModule } from './modules/dispatch/dispatch.module';
 
 @Module({
   imports: [
@@ -177,6 +179,8 @@ import { ObuMqttModule } from './modules/obu-mqtt/obu-mqtt.module';
     ParamedicsModule,
     DriversModule,
     ObuMqttModule,
+    AccidentsModule,
+    DispatchModule,
   ],
   controllers: [AppController],
   providers: [

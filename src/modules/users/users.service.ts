@@ -224,7 +224,7 @@ export class UsersService {
         include: {
           emergencyContacts: true,
           vehicles: { include: { obus: true } },
-          incidents: { take: 10, orderBy: { createdAt: 'desc' } },
+          accidents: { take: 10, orderBy: { createdAt: 'desc' } },
         },
       };
     }
@@ -233,10 +233,10 @@ export class UsersService {
     if (targetUser.role.name === CurrentRoles.PARAMEDIC) {
       include.paramedic = {
         include: {
-          incidentResponses: {
+          accidentResponses: {
             take: 10,
             orderBy: { dispatchedAt: 'desc' },
-            include: { incident: true },
+            include: { accident: true },
           },
         },
       };
