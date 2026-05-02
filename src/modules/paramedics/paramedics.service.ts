@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
 import { ParamedicStatus, Prisma } from '../../../generated/prisma/client';
-import { AvailableParamedicDto } from './dto/available-paramedic.dto';
+import { ParamedicLocationDto } from './dto/paramedic-location.dto';
 import {
   createPoint,
   getLongLat,
@@ -15,6 +15,7 @@ import {
 import { ParamedicsLocationFindOptionsQueryFilter } from './filter/users-find-options-query-filter';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
 import { getPaginationParams } from '../../common/utils/pagination.utils';
+import { WsException } from '@nestjs/websockets';
 
 @Injectable()
 export class ParamedicsService {
@@ -44,77 +45,6 @@ export class ParamedicsService {
     this.logger.log(
       `paramedic id: ${id} authorization changed to ${isAuthorized}`,
     );
-
-    return { success: true };
-  }
-
-  async paramedicAvailable(userId: string, dto: AvailableParamedicDto) {
-    const paramedic = await this.findOrThrow(
-      { id: userId },
-      {
-        id: true,
-        status: true,
-        isAuthorized: true,
-        user: { select: { isVerified: true } },
-      },
-    );
-
-    if (paramedic.status === ParamedicStatus.AVAILABLE)
-      throw new ConflictException('paramedics.PARAMEDIC_ALREADY_AVAILABLE');
-    if (paramedic.status === ParamedicStatus.ON_MISSION)
-      throw new ConflictException('paramedics.PARAMEDIC_ON_MISSION');
-
-    // check if the paramedic is verified and authorized
-    if (!paramedic.user.isVerified)
-      throw new ConflictException('users.USER_IS_NOT_VERIFIED');
-    if (!paramedic.isAuthorized)
-      throw new ConflictException('paramedics.PARAMEDIC_NOT_AUTHORIZED');
-
-    const { gpsLongitude, gpsLatitude } = dto;
-
-    // set location and status to available
-    await this.prismaService.$executeRaw(Prisma.sql`
-      UPDATE "paramedics"
-      SET "status" = 'available', 
-          "location" = ${createPoint(gpsLongitude, gpsLatitude)}
-      WHERE "id" = ${userId}
-    `);
-
-    this.logger.log(
-      `paramedic id: ${userId} status changed to available location: ${gpsLongitude}, ${gpsLatitude}`,
-    );
-
-    return { success: true };
-  }
-
-  async paramedicUnavailable(userId: string) {
-    const paramedic = await this.findOrThrow(
-      { id: userId },
-      {
-        id: true,
-        status: true,
-        isAuthorized: true,
-        user: { select: { isVerified: true } },
-      },
-    );
-
-    if (paramedic.status === ParamedicStatus.UNAVAILABLE)
-      throw new ConflictException('paramedics.PARAMEDIC_ALREADY_UNAVAILABLE');
-    if (paramedic.status === ParamedicStatus.ON_MISSION)
-      throw new ConflictException('paramedics.PARAMEDIC_ON_MISSION');
-
-    // check if the paramedic is verified and authorized
-    if (!paramedic.user.isVerified)
-      throw new ConflictException('users.USER_IS_NOT_VERIFIED');
-    if (!paramedic.isAuthorized)
-      throw new ConflictException('paramedics.PARAMEDIC_NOT_AUTHORIZED');
-
-    await this.prismaService.paramedic.update({
-      where: { id: userId },
-      data: { status: ParamedicStatus.UNAVAILABLE },
-    });
-
-    this.logger.log(`paramedic id: ${userId} status changed to unavailable`);
 
     return { success: true };
   }
@@ -193,6 +123,102 @@ export class ParamedicsService {
     };
   }
 
+  // ========== ws functions ==========
+
+  async paramedicAvailable(userId: string, dto: ParamedicLocationDto) {
+    const paramedic = await this.wsFindOrThrow(
+      { id: userId },
+      {
+        id: true,
+        status: true,
+        isAuthorized: true,
+        user: { select: { isVerified: true } },
+      },
+    );
+
+    if (paramedic.status === ParamedicStatus.AVAILABLE)
+      throw new WsException('paramedics.PARAMEDIC_ALREADY_AVAILABLE');
+    if (paramedic.status === ParamedicStatus.ON_MISSION)
+      throw new WsException('paramedics.PARAMEDIC_ON_MISSION');
+
+    // check if the paramedic is verified and authorized
+    if (!paramedic.user.isVerified)
+      throw new WsException('users.USER_IS_NOT_VERIFIED');
+    if (!paramedic.isAuthorized)
+      throw new WsException('paramedics.PARAMEDIC_NOT_AUTHORIZED');
+
+    const { gpsLongitude, gpsLatitude } = dto;
+
+    // set location and status to available
+    await this.prismaService.$executeRaw(Prisma.sql`
+      UPDATE "paramedics"
+      SET "status" = 'available', 
+          "location" = ${createPoint(gpsLongitude, gpsLatitude)}
+      WHERE "id" = ${userId}
+    `);
+
+    this.logger.log(
+      `paramedic id: ${userId} status changed to available location: ${gpsLongitude}, ${gpsLatitude}`,
+    );
+
+    return { success: true };
+  }
+
+  async paramedicUnavailable(userId: string) {
+    const paramedic = await this.wsFindOrThrow(
+      { id: userId },
+      {
+        id: true,
+        status: true,
+      },
+    );
+
+    if (paramedic.status === ParamedicStatus.UNAVAILABLE)
+      throw new WsException('paramedics.PARAMEDIC_ALREADY_UNAVAILABLE');
+    if (paramedic.status === ParamedicStatus.ON_MISSION)
+      throw new WsException('paramedics.PARAMEDIC_ON_MISSION');
+
+    await this.prismaService.paramedic.update({
+      where: { id: userId },
+      data: { status: ParamedicStatus.UNAVAILABLE },
+    });
+
+    this.logger.log(`paramedic id: ${userId} status changed to unavailable`);
+
+    return { success: true };
+  }
+
+  async updateParamedicLocation(userId: string, dto: ParamedicLocationDto) {
+    await this.wsFindOrThrow({ id: userId }, { id: true });
+
+    const { gpsLongitude, gpsLatitude } = dto;
+    await this.prismaService.$executeRaw(Prisma.sql`
+      UPDATE "paramedics"
+      SET "location" = ${createPoint(gpsLongitude, gpsLatitude)}
+      WHERE "id" = ${userId}
+    `);
+    this.logger.log(
+      `paramedic ${userId} location updated to ${gpsLongitude}, ${gpsLatitude}`,
+    );
+
+    return { success: true };
+  }
+
+  async getParamedicStatus(userId: string) {
+    const paramedic = await this.wsFindOrThrow(
+      { id: userId },
+      {
+        status: true,
+      },
+    );
+    return {
+      success: true,
+      data: {
+        status: paramedic.status,
+      },
+    };
+  }
+
   // =============== helper methods ===============
 
   async findOrThrow<T extends Prisma.ParamedicSelect | undefined>(
@@ -210,6 +236,25 @@ export class ParamedicsService {
         error.code === 'P2025'
       )
         throw new NotFoundException('paramedics.PARAMEDIC_NOT_FOUND');
+      throw error;
+    }
+  }
+
+  async wsFindOrThrow<T extends Prisma.ParamedicSelect | undefined>(
+    where: Prisma.ParamedicWhereInput,
+    select?: T,
+  ) {
+    try {
+      return (await this.prismaService.paramedic.findFirstOrThrow({
+        where,
+        select,
+      })) as Prisma.ParamedicGetPayload<{ select: T }>;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      )
+        throw new WsException('paramedics.PARAMEDIC_NOT_FOUND');
       throw error;
     }
   }

@@ -13,9 +13,9 @@ import { ParamedicsService } from './paramedics.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentRoles } from '../../../generated/prisma/enums';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AvailableParamedicDto } from './dto/available-paramedic.dto';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
 import { ParamedicsLocationFindOptionsQueryFilter } from './filter/users-find-options-query-filter';
+import { ParamedicLocationDto } from './dto/paramedic-location.dto';
 
 @Controller('paramedics')
 export class ParamedicsController {
@@ -40,7 +40,7 @@ export class ParamedicsController {
   @Post('available')
   availableParamedic(
     @CurrentUser('sub') userId: string,
-    @Body() dto: AvailableParamedicDto,
+    @Body() dto: ParamedicLocationDto,
   ) {
     return this.paramedicsService.paramedicAvailable(userId, dto);
   }

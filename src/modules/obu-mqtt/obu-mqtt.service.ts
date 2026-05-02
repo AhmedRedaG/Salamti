@@ -1,4 +1,5 @@
 import {
+  forwardRef,
   Inject,
   Injectable,
   Logger,
@@ -6,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import appConfig from '../../config/app.config';
-import { ObuMqttCommands } from '../../types/obu-mqtt.types';
+import { ObuAccidentAlert, ObuMqttCommands } from '../../types/obu-mqtt.types';
 import {
   catchError,
   firstValueFrom,
@@ -14,6 +15,8 @@ import {
   timeout,
   toArray,
 } from 'rxjs';
+import { AccidentsService } from '../accidents/accidents.service';
+import { AccidentType } from '../../../generated/prisma/enums';
 
 const mqttConfig = appConfig().mqtt;
 const MQTT_CLIENT_NAME = mqttConfig.clientName;
@@ -25,7 +28,40 @@ export class ObuMqttService {
 
   constructor(
     @Inject(MQTT_CLIENT_NAME) private readonly mqttClient: ClientProxy,
+    @Inject(forwardRef(() => AccidentsService))
+    private readonly accidentsService: AccidentsService,
   ) {}
+
+  async handleAccidentAlert(data: ObuAccidentAlert) {
+    const { event, inst, lat, lng, ...restData } = data;
+
+    if (!lat || !lng) {
+      this.logger.warn(`missing lat/lng for accident alert from ${inst}`);
+      return;
+    }
+
+    // convert accident event to accident type
+    const type: AccidentType =
+      event === 'MANUAL_SOS_REQUEST'
+        ? AccidentType.SOS
+        : AccidentType.ACCIDENTS;
+
+    // store accident and create a job to confirm the accident
+    await this.accidentsService.queueCreateAccident({
+      obuInst: inst,
+      type,
+      lat,
+      lng,
+      ...restData,
+    });
+  }
+
+  async handleAlarmCanceledByDriver(data: ObuAccidentAlert) {
+    await this.accidentsService.cancelAccident(data.inst);
+  }
+
+  // FEATURE PLAN
+  // handleAccidentDataDump(data: ObuDataDumpChunk) {}
 
   // ================= he;per methods =================
 
