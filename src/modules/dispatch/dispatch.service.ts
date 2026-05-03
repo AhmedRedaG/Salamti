@@ -124,13 +124,18 @@ export class DispatchService {
     }
 
     // create accident response
-    await this.prismaService.accidentResponse.create({
-      data: {
-        accidentId,
-        paramedicId,
-        patientStatus: PatientStatus.UNKNOWN,
+    const { id: responseId } = await this.prismaService.accidentResponse.create(
+      {
+        data: {
+          accidentId,
+          paramedicId,
+          patientStatus: PatientStatus.UNKNOWN,
+        },
+        select: {
+          id: true,
+        },
       },
-    });
+    );
 
     // update paramedic status
     await this.prismaService.paramedic.update({
@@ -153,6 +158,6 @@ export class DispatchService {
       this.server.emit('accident:taken', { accidentId });
     }
 
-    return { success: true };
+    return { success: true, data: { accidentId, responseId } };
   }
 }

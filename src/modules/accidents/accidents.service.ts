@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   forwardRef,
   Inject,
   Injectable,
@@ -9,12 +10,26 @@ import {
 import { PrismaService } from '../../core/database/prisma/prisma.service';
 import { CreateAccidentDto } from './dto/create-accident.dto';
 import { ObusService } from '../obus/obus.service';
-import { AccidentLevel, AccidentStatus } from '../../../generated/prisma/enums';
+import {
+  AccidentLevel,
+  AccidentStatus,
+  CurrentRoles,
+} from '../../../generated/prisma/enums';
 import { InjectQueue } from '@nestjs/bullmq';
 import { QueueNames } from '../../types/queue.types';
 import { Queue } from 'bullmq';
 import { Prisma } from '../../../generated/prisma/client';
-import { createPoint } from '../../common/utils/postgis.utils';
+import {
+  createPoint,
+  getLongLat,
+  orderByDistance,
+} from '../../common/utils/postgis.utils';
+import { getPaginationParams } from '../../common/utils/pagination.utils';
+import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
+import { AccidentsFindOptionsQueryFilter } from './filter/accidents-find-options-query-filter';
+import { JwtPayload } from '../../types/auth.types';
+import { accidentFindOneInclude } from './constant/accidents.constant';
+import { OrderDirection } from '../../common/filters/main-find-options-query.filter';
 
 @Injectable()
 export class AccidentsService {
@@ -26,6 +41,164 @@ export class AccidentsService {
     @Inject(forwardRef(() => ObusService))
     private readonly obusService: ObusService,
   ) {}
+
+  async findAll(
+    userPayload: JwtPayload,
+    pagination: PaginationQueryFilter,
+    findOptions: AccidentsFindOptionsQueryFilter,
+  ) {
+    const { page, limit, offset } = getPaginationParams(
+      pagination.page,
+      pagination.limit,
+    );
+
+    const {
+      driverId,
+      vehicleId,
+      obuId,
+      status,
+      type,
+      level,
+      gpsLongitude,
+      gpsLatitude,
+      orderDirection,
+    } = findOptions;
+
+    const conditions: Prisma.Sql[] = [];
+    if (userPayload.ur === CurrentRoles.DRIVER) {
+      conditions.push(Prisma.sql`a.driver_id = ${userPayload.sub}::uuid`);
+    } else if (driverId) {
+      conditions.push(Prisma.sql`a.driver_id = ${driverId}::uuid`);
+    }
+
+    if (vehicleId)
+      conditions.push(Prisma.sql`a.vehicle_id = ${vehicleId}::uuid`);
+    if (obuId) conditions.push(Prisma.sql`a.obu_id = ${obuId}::uuid`);
+    if (status)
+      conditions.push(
+        Prisma.sql`a.status = CAST(${status.toLowerCase()} AS "AccidentStatus")`,
+      );
+    if (type)
+      conditions.push(
+        Prisma.sql`a.type = CAST(${type.toLowerCase()} AS "AccidentType")`,
+      );
+    if (level)
+      conditions.push(
+        Prisma.sql`a.level = CAST(${level.toLowerCase()} AS "AccidentLevel")`,
+      );
+
+    const whereClause =
+      conditions.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+        : Prisma.empty;
+
+    let orderByClause;
+    if (gpsLongitude && gpsLatitude) {
+      orderByClause = Prisma.sql`ORDER BY "distance" ASC`;
+    } else {
+      const finalOrderBy = 'created_at';
+      const finalOrderDir =
+        orderDirection === OrderDirection.ASC
+          ? Prisma.sql`ASC`
+          : Prisma.sql`DESC`;
+
+      orderByClause = Prisma.sql`ORDER BY a.${Prisma.raw(finalOrderBy)} ${finalOrderDir}`;
+    }
+
+    const distanceSql =
+      gpsLongitude && gpsLatitude
+        ? Prisma.sql`${orderByDistance('a.location', gpsLongitude, gpsLatitude)}`
+        : Prisma.sql`0`;
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const rawAccidents = (await this.prismaService.$queryRaw`
+      SELECT 
+        a.id AS "id",
+        a.driver_id AS "driverId",
+        a.vehicle_id AS "vehicleId",
+        a.obu_id AS "obuId",
+        a.time AS "time",
+        a.type AS "type",
+        a.level AS "level",
+        a.status AS "status",
+        a.created_at AS "createdAt",
+        ${getLongLat('a.location')},
+        ${distanceSql} AS "distance",
+        COUNT(*) OVER()::int AS "total"
+      FROM "accidents" AS a
+      ${whereClause}
+      ${orderByClause}
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `) as any;
+
+    const total = rawAccidents[0]?.total ?? 0;
+    const cleanedData = rawAccidents.map(({ total, ...rest }: any) => rest);
+
+    return {
+      success: true,
+      data: {
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+        accidents: cleanedData,
+      },
+    };
+  }
+
+  async findOne(userPayload: JwtPayload, id: string) {
+    const where: Prisma.AccidentWhereInput = { id };
+    if (userPayload.ur === CurrentRoles.DRIVER) {
+      where.driverId = userPayload.sub;
+    }
+
+    const accident = await this.findIncludeOrThrow(
+      where,
+      accidentFindOneInclude,
+    );
+
+    // fetch the location specifically
+    // const locationData = await this.prismaService.$queryRaw<
+    //   Array<{ longitude: number; latitude: number }>
+    // >`
+    //   SELECT ${getLongLat('location')}
+    //   FROM "accidents"
+    //   WHERE "id" = ${id}::uuid
+    // `;
+
+    return {
+      success: true,
+      data: {
+        accident,
+      },
+    };
+  }
+
+  async cancelAccidentManual(id: string) {
+    const accident = await this.findOrThrow({ id }, { id: true, status: true });
+
+    if (accident.status === AccidentStatus.IN_PROGRESS) {
+      throw new BadRequestException('accidents.IN_PROGRESS');
+    }
+
+    if (accident.status === AccidentStatus.CANCELED) {
+      throw new ConflictException('accidents.ALREADY_CANCELED');
+    }
+
+    await this.prismaService.accident.update({
+      where: { id: accident.id },
+      data: { status: AccidentStatus.CANCELED },
+    });
+
+    this.logger.log(`accident ${id} manually canceled by admin`);
+
+    return { success: true };
+  }
+
+  // =============== internal functions ===============
 
   async queueCreateAccident(payload: CreateAccidentDto) {
     const job = await this.accidentQueue.add('createAccident', payload);

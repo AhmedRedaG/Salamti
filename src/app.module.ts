@@ -30,6 +30,7 @@ import { DriversModule } from './modules/drivers/drivers.module';
 import { ObuMqttModule } from './modules/obu-mqtt/obu-mqtt.module';
 import { AccidentsModule } from './modules/accidents/accidents.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
+import { AccidentResponsesModule } from './modules/accident-responses/accident-responses.module';
 
 @Module({
   imports: [
@@ -181,6 +182,7 @@ import { DispatchModule } from './modules/dispatch/dispatch.module';
     ObuMqttModule,
     AccidentsModule,
     DispatchModule,
+    AccidentResponsesModule,
   ],
   controllers: [AppController],
   providers: [
