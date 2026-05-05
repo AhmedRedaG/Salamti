@@ -224,7 +224,7 @@ export class AccidentsService {
 
     if (!obu.driverId || !obu.vehicleId) {
       this.logger.warn(`accident from obu ${obuInst} has no driver or vehicle`);
-      return;
+      return { success: false };
     }
 
     // TODO: use ML model to detect accident level
@@ -267,6 +267,7 @@ export class AccidentsService {
     );
 
     this.logger.log(`queued confirmAccident job for accident ${accident.id}`);
+    return { success: true };
   }
 
   async cancelAccident(obuInstNumber: string) {
@@ -285,7 +286,7 @@ export class AccidentsService {
       this.logger.warn(
         `accident for obu ${obuInstNumber} not found or not recorded`,
       );
-      return;
+      return { success: false };
     }
 
     await this.prismaService.accident.update({
@@ -299,6 +300,7 @@ export class AccidentsService {
     });
 
     this.logger.log(`accident ${accident.id} canceled`);
+    return { success: true };
   }
 
   async confirmAccident(accidentId: string): Promise<boolean> {
