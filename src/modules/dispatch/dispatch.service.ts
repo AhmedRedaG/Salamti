@@ -2,7 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
 import {
+  AccidentLevel,
   AccidentStatus,
+  AccidentType,
   ParamedicStatus,
   PatientStatus,
 } from '../../../generated/prisma/client';
@@ -49,27 +51,51 @@ export class DispatchService {
       SELECT id, level, type, ${getLongLat('location')}
       FROM "accidents"
       WHERE id = ${accidentId}::uuid
-    `) as any[];
+    `) as {
+      longitude: number;
+      latitude: number;
+      id: string;
+      level: AccidentLevel;
+      type: AccidentType;
+    }[];
 
     if (!accidentLocationResult || accidentLocationResult.length === 0) {
       this.logger.error(`accident ${accidentId} not found during dispatch`);
+      return { success: false };
     }
 
     const accidentInfo = accidentLocationResult[0];
     const { longitude, latitude } = accidentInfo;
 
-    // get available paramedics ordered by distance
-    const availableParamedics = (await this.prismaService.$queryRaw`
-      SELECT 
-        id,
-        status,
-        ${orderByDistance('location', longitude, latitude)} AS "distance"
-      FROM "paramedics"
-      WHERE status = 'available'
-        AND location IS NOT NULL
-      ORDER BY "distance"
-      LIMIT 10
-    `) as any[];
+    const availableParamedics = await this.getAvailableParamedics(
+      longitude,
+      latitude,
+    );
+
+    // TODO: implement retry logic using queue
+    // retry for 3 times with 5 minutes interval if no available paramedics found
+    // let retries = 3;
+    // for (retries; retries > 0; retries--) {
+    //   if (availableParamedics.length === 0) {
+    //     this.logger.warn(
+    //       `no available paramedics found for accident ${accidentId}`,
+    //     );
+    //     // wait for 5 minutes and try again
+    //     // await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 5));
+    //     availableParamedics = await this.getAvailableParamedics(
+    //       longitude,
+    //       latitude,
+    //     );
+    //   } else {
+    //     break;
+    //   }
+    // }
+    // if (retries === 0) {
+    //   this.logger.error(
+    //     `no available paramedics found for accident ${accidentId}`,
+    //   );
+    //   return { success: false };
+    // }
 
     if (availableParamedics.length === 0) {
       this.logger.warn(
@@ -78,8 +104,11 @@ export class DispatchService {
       return { success: false };
     }
 
+    // get top 5 available paramedics
+    const topAvailableParamedics = availableParamedics.slice(0, 5);
+
     // emit 'accident:confirmed' to the connected ones among the top available
-    for (const paramedic of availableParamedics) {
+    for (const paramedic of topAvailableParamedics) {
       const socketId = this.activeParamedics.get(paramedic.id);
       if (socketId && this.server) {
         this.logger.log(
@@ -159,5 +188,21 @@ export class DispatchService {
     }
 
     return { success: true, data: { accidentId, responseId } };
+  }
+
+  // ============ helper function ==========
+
+  async getAvailableParamedics(longitude: number, latitude: number) {
+    return (await this.prismaService.$queryRaw`
+      SELECT 
+        id,
+        status,
+        ${orderByDistance('location', longitude, latitude)} AS "distance"
+      FROM "paramedics"
+      WHERE status = 'available'
+        AND location IS NOT NULL
+      ORDER BY "distance"
+      LIMIT 10
+    `) as { id: string; status: ParamedicStatus; distance: number }[];
   }
 }

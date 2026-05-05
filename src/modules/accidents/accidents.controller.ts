@@ -1,11 +1,14 @@
 import {
+  Body,
   Controller,
   Get,
   Patch,
+  Post,
   Param,
   ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
+import { CreateAccidentDto } from './dto/create-accident.dto';
 import { AccidentsService } from './accidents.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentRoles } from '../../../generated/prisma/enums';
@@ -41,5 +44,17 @@ export class AccidentsController {
   @Patch(':id/cancel')
   cancelAccidentManual(@Param('id', ParseUUIDPipe) id: string) {
     return this.accidentsService.cancelAccidentManual(id);
+  }
+
+  // TODO: remove this endpoint before production
+  @Post('fake-create')
+  fakeAccidentCreation(@Body() dto: CreateAccidentDto) {
+    return this.accidentsService.createAccident(dto);
+  }
+
+  // TODO: remove this endpoint before production
+  @Post('fake-cancel')
+  fakeAccidentsCancelling(@Body('instNumber') obuInst: string) {
+    return this.accidentsService.cancelAccident(obuInst);
   }
 }

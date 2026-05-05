@@ -9,13 +9,23 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import {
+  Logger,
+  ParseUUIDPipe,
+  UseFilters,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
 import { WsJwtGuard } from '../../common/guards/ws-jwt.guard';
 import { CurrentWsUser } from '../../common/decorators/current-ws-user.decorator';
 import { ParamedicsService } from '../paramedics/paramedics.service';
 import { ParamedicLocationDto } from '../paramedics/dto/paramedic-location.dto';
+import { WsExceptionFilter } from '../../common/exceptions-filters/ws-exception.filter';
 
+@UseFilters(WsExceptionFilter)
+@UsePipes(new ValidationPipe({ transform: true }))
 @WebSocketGateway({
   cors: {
     origin: '*',

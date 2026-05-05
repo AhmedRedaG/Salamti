@@ -13,6 +13,7 @@ import { ObusService } from '../obus/obus.service';
 import {
   AccidentLevel,
   AccidentStatus,
+  AccidentType,
   CurrentRoles,
 } from '../../../generated/prisma/enums';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -223,7 +224,7 @@ export class AccidentsService {
 
     if (!obu.driverId || !obu.vehicleId) {
       this.logger.warn(`accident from obu ${obuInst} has no driver or vehicle`);
-      return;
+      return { success: false };
     }
 
     // TODO: use ML model to detect accident level
@@ -253,14 +254,20 @@ export class AccidentsService {
 
     this.logger.log(`accident ${accident.id} created`);
 
-    // schedule confirmation job after 20 seconds
+    // set delay for confirmation job
+    // if accident is type: accident -> 20 seconds
+    // else -> 10 seconds
+    const delay = type === AccidentType.ACCIDENTS ? 20000 : 10000;
+
+    // schedule confirmation job
     await this.accidentQueue.add(
       'confirmAccident',
       { accidentId: accident.id },
-      { delay: 20000 },
+      { delay },
     );
 
     this.logger.log(`queued confirmAccident job for accident ${accident.id}`);
+    return { success: true };
   }
 
   async cancelAccident(obuInstNumber: string) {
@@ -279,7 +286,7 @@ export class AccidentsService {
       this.logger.warn(
         `accident for obu ${obuInstNumber} not found or not recorded`,
       );
-      return;
+      return { success: false };
     }
 
     await this.prismaService.accident.update({
@@ -293,6 +300,7 @@ export class AccidentsService {
     });
 
     this.logger.log(`accident ${accident.id} canceled`);
+    return { success: true };
   }
 
   async confirmAccident(accidentId: string): Promise<boolean> {

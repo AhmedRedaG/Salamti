@@ -12,10 +12,8 @@ import {
 import { ParamedicsService } from './paramedics.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentRoles } from '../../../generated/prisma/enums';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
 import { ParamedicsLocationFindOptionsQueryFilter } from './filter/users-find-options-query-filter';
-import { ParamedicLocationDto } from './dto/paramedic-location.dto';
 
 @Controller('paramedics')
 export class ParamedicsController {
@@ -33,23 +31,6 @@ export class ParamedicsController {
   @Post(':id/unauthorize')
   unauthorizeParamedic(@Param('id', ParseUUIDPipe) id: string) {
     return this.paramedicsService.paramedicAuthorization(id, false);
-  }
-
-  @Roles(CurrentRoles.PARAMEDIC)
-  @HttpCode(HttpStatus.OK)
-  @Post('available')
-  availableParamedic(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: ParamedicLocationDto,
-  ) {
-    return this.paramedicsService.paramedicAvailable(userId, dto);
-  }
-
-  @Roles(CurrentRoles.PARAMEDIC)
-  @HttpCode(HttpStatus.OK)
-  @Post('unavailable')
-  unavailableParamedic(@CurrentUser('sub') userId: string) {
-    return this.paramedicsService.paramedicUnavailable(userId);
   }
 
   @Roles(CurrentRoles.ADMIN)
