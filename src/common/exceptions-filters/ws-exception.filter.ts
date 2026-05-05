@@ -45,7 +45,7 @@ export class WsExceptionFilter implements ExceptionFilter {
         status = httpError.getStatus();
       }
       this.logger.warn(
-        `websocket client ${client.id} threw an error: ${errorName} S{message} ${status}`,
+        `websocket client ${client.id} threw an error: ${errorName} ${message} ${status}`,
       );
     }
 

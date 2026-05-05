@@ -67,30 +67,38 @@ export class DispatchService {
     const accidentInfo = accidentLocationResult[0];
     const { longitude, latitude } = accidentInfo;
 
-    let availableParamedics = await this.getAvailableParamedics(
+    const availableParamedics = await this.getAvailableParamedics(
       longitude,
       latitude,
     );
 
+    // TODO: implement retry logic using queue
     // retry for 3 times with 5 minutes interval if no available paramedics found
-    let retries = 3;
-    for (retries; retries > 0; retries--) {
-      if (availableParamedics.length === 0) {
-        this.logger.warn(
-          `no available paramedics found for accident ${accidentId}`,
-        );
-        // wait for 5 minutes and try again
-        await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 5));
-        availableParamedics = await this.getAvailableParamedics(
-          longitude,
-          latitude,
-        );
-      } else {
-        break;
-      }
-    }
-    if (retries === 0) {
-      this.logger.error(
+    // let retries = 3;
+    // for (retries; retries > 0; retries--) {
+    //   if (availableParamedics.length === 0) {
+    //     this.logger.warn(
+    //       `no available paramedics found for accident ${accidentId}`,
+    //     );
+    //     // wait for 5 minutes and try again
+    //     // await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 5));
+    //     availableParamedics = await this.getAvailableParamedics(
+    //       longitude,
+    //       latitude,
+    //     );
+    //   } else {
+    //     break;
+    //   }
+    // }
+    // if (retries === 0) {
+    //   this.logger.error(
+    //     `no available paramedics found for accident ${accidentId}`,
+    //   );
+    //   return { success: false };
+    // }
+
+    if (availableParamedics.length === 0) {
+      this.logger.warn(
         `no available paramedics found for accident ${accidentId}`,
       );
       return { success: false };
