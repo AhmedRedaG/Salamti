@@ -13,6 +13,7 @@ import { ObusService } from '../obus/obus.service';
 import {
   AccidentLevel,
   AccidentStatus,
+  AccidentType,
   CurrentRoles,
 } from '../../../generated/prisma/enums';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -253,11 +254,16 @@ export class AccidentsService {
 
     this.logger.log(`accident ${accident.id} created`);
 
-    // schedule confirmation job after 20 seconds
+    // set delay for confirmation job
+    // if accident is type: accident -> 20 seconds
+    // else -> 10 seconds
+    const delay = type === AccidentType.ACCIDENTS ? 20000 : 10000;
+
+    // schedule confirmation job
     await this.accidentQueue.add(
       'confirmAccident',
       { accidentId: accident.id },
-      { delay: 20000 },
+      { delay },
     );
 
     this.logger.log(`queued confirmAccident job for accident ${accident.id}`);
