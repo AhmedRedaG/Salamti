@@ -6,6 +6,7 @@ import { QueueNames } from '../../types/queue.types';
 import { AccidentWorker } from './accidents.worker';
 import { DispatchModule } from '../dispatch/dispatch.module';
 import { ObusModule } from '../obus/obus.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ObusModule } from '../obus/obus.module';
     }),
     forwardRef(() => DispatchModule),
     forwardRef(() => ObusModule),
+    NotificationModule,
   ],
   controllers: [AccidentsController],
   providers: [AccidentsService, AccidentWorker],

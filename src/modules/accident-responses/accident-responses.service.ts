@@ -14,7 +14,9 @@ import {
   ResponseStatus,
   ParamedicStatus,
   AccidentStatus,
+  NotificationSlug,
 } from '../../../generated/prisma/enums';
+import { NotificationService } from '../notification/notification.service';
 import { Prisma } from '../../../generated/prisma/client';
 import {
   accidentResponseFindAllSelect,
@@ -26,7 +28,10 @@ import { CompleteAccidentResponseDto } from './dto/complete-accident-response.dt
 export class AccidentResponsesService {
   private readonly logger = new Logger(AccidentResponsesService.name);
 
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async findAll(
     userPayload: JwtPayload,
@@ -118,6 +123,7 @@ export class AccidentResponsesService {
     const response = await this.findOrThrow(where, {
       id: true,
       responseStatus: true,
+      accident: { select: { driverId: true } },
     });
 
     if (response.responseStatus !== ResponseStatus.DISPATCHED) {
@@ -133,6 +139,13 @@ export class AccidentResponsesService {
         responseStatus: ResponseStatus.ARRIVED,
         arrivedAt: now,
       },
+    });
+
+    await this.notificationService.queueNotification({
+      recipientId: response.accident.driverId,
+      typeSlug: NotificationSlug.PARAMEDIC_ARRIVED,
+      referenceId: response.id,
+      referenceTable: 'accident_responses',
     });
 
     this.logger.log(`response id: ${responseId} marked as arrived`);
@@ -159,6 +172,7 @@ export class AccidentResponsesService {
       id: true,
       responseStatus: true,
       accidentId: true,
+      accident: { select: { driverId: true } },
     });
 
     if (response.responseStatus !== ResponseStatus.ARRIVED) {
@@ -192,6 +206,13 @@ export class AccidentResponsesService {
         },
       }),
     ]);
+
+    await this.notificationService.queueNotification({
+      recipientId: response.accident.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_COMPLETED,
+      referenceId: response.accidentId,
+      referenceTable: 'accidents',
+    });
 
     this.logger.log(`response id: ${responseId} marked as completed`);
 

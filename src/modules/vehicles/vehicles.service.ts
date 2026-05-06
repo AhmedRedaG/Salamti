@@ -12,7 +12,11 @@ import { getPaginationParams } from '../../common/utils/pagination.utils';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
 import { VehiclesFindOptionsQueryFilter } from './filter/vehicles-find-options-query-filter';
 import { JwtPayload } from '../../types/auth.types';
-import { CurrentRoles } from '../../../generated/prisma/enums';
+import {
+  CurrentRoles,
+  NotificationSlug,
+} from '../../../generated/prisma/enums';
+import { NotificationService } from '../notification/notification.service';
 import { Prisma } from '../../../generated/prisma/client';
 import { vehicleFindOneInclude } from './constant/vehicles.constant';
 
@@ -20,7 +24,10 @@ import { vehicleFindOneInclude } from './constant/vehicles.constant';
 export class VehiclesService {
   private readonly logger = new Logger(VehiclesService.name);
 
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async create(userId: string, dto: CreateVehicleDto) {
     await this.checkConflict(dto.licensePlate);
@@ -33,6 +40,16 @@ export class VehiclesService {
     });
 
     this.logger.log(`created vehicle id: ${vehicle.id} driverId: ${userId}`);
+
+    await this.notificationService.queueNotification({
+      recipientId: userId,
+      typeSlug: NotificationSlug.VEHICLE_CREATED,
+      referenceId: vehicle.id,
+      referenceTable: 'vehicles',
+      variables: {
+        vehicleLicense: vehicle.licensePlate,
+      },
+    });
 
     return {
       success: true,
@@ -137,6 +154,16 @@ export class VehiclesService {
       `updated vehicle id: ${vehicleId} data: ${JSON.stringify(dto)}`,
     );
 
+    await this.notificationService.queueNotification({
+      recipientId: userId,
+      typeSlug: NotificationSlug.VEHICLE_UPDATED,
+      referenceId: vehicleId,
+      referenceTable: 'vehicles',
+      variables: {
+        vehicleLicense: updatedVehicle.licensePlate,
+      },
+    });
+
     return {
       success: true,
       data: {
@@ -146,7 +173,10 @@ export class VehiclesService {
   }
 
   async remove(userId: string, vehicleId: string) {
-    await this.findOrThrow({ id: vehicleId, driverId: userId }, { id: true });
+    const vehicle = await this.findOrThrow(
+      { id: vehicleId, driverId: userId },
+      { id: true, licensePlate: true },
+    );
 
     try {
       await this.prismaService.vehicle.delete({
@@ -162,6 +192,16 @@ export class VehiclesService {
     }
 
     this.logger.log(`deleted vehicle id: ${vehicleId}`);
+
+    await this.notificationService.queueNotification({
+      recipientId: userId,
+      typeSlug: NotificationSlug.VEHICLE_DELETED,
+      referenceId: vehicleId,
+      referenceTable: 'vehicles',
+      variables: {
+        vehicleLicense: vehicle.licensePlate,
+      },
+    });
 
     return {
       success: true,

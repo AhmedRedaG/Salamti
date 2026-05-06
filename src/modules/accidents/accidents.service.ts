@@ -15,7 +15,9 @@ import {
   AccidentStatus,
   AccidentType,
   CurrentRoles,
+  NotificationSlug,
 } from '../../../generated/prisma/enums';
+import { NotificationService } from '../notification/notification.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { QueueNames } from '../../types/queue.types';
 import { Queue } from 'bullmq';
@@ -41,6 +43,7 @@ export class AccidentsService {
     private readonly prismaService: PrismaService,
     @Inject(forwardRef(() => ObusService))
     private readonly obusService: ObusService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async findAll(
@@ -179,7 +182,10 @@ export class AccidentsService {
   }
 
   async cancelAccidentManual(id: string) {
-    const accident = await this.findOrThrow({ id }, { id: true, status: true });
+    const accident = await this.findOrThrow(
+      { id },
+      { id: true, status: true, driverId: true },
+    );
 
     if (accident.status === AccidentStatus.IN_PROGRESS) {
       throw new BadRequestException('accidents.IN_PROGRESS');
@@ -192,6 +198,13 @@ export class AccidentsService {
     await this.prismaService.accident.update({
       where: { id: accident.id },
       data: { status: AccidentStatus.CANCELED },
+    });
+
+    await this.notificationService.queueNotification({
+      recipientId: accident.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_CANCELED,
+      referenceId: accident.id,
+      referenceTable: 'accidents',
     });
 
     this.logger.log(`accident ${id} manually canceled by admin`);
@@ -252,6 +265,16 @@ export class AccidentsService {
           WHERE "id" = ${accident.id}
         `);
 
+    await this.notificationService.queueNotification({
+      recipientId: obu.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_DETECTED,
+      referenceId: accident.id,
+      referenceTable: 'accidents',
+      variables: {
+        obuInst: obuInst,
+      },
+    });
+
     this.logger.log(`accident ${accident.id} created`);
 
     // set delay for confirmation job
@@ -279,6 +302,7 @@ export class AccidentsService {
       },
       select: {
         id: true,
+        driverId: true,
       },
     });
 
@@ -299,6 +323,13 @@ export class AccidentsService {
       },
     });
 
+    await this.notificationService.queueNotification({
+      recipientId: accident.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_CANCELED,
+      referenceId: accident.id,
+      referenceTable: 'accidents',
+    });
+
     this.logger.log(`accident ${accident.id} canceled`);
     return { success: true };
   }
@@ -306,7 +337,7 @@ export class AccidentsService {
   async confirmAccident(accidentId: string): Promise<boolean> {
     const accident = await this.prismaService.accident.findUnique({
       where: { id: accidentId, status: AccidentStatus.RECORDED },
-      select: { id: true },
+      select: { id: true, driverId: true },
     });
 
     if (!accident) {
@@ -317,6 +348,13 @@ export class AccidentsService {
     await this.prismaService.accident.update({
       where: { id: accidentId },
       data: { status: AccidentStatus.CONFIRMED },
+    });
+
+    await this.notificationService.queueNotification({
+      recipientId: accident.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_CONFIRMED,
+      referenceId: accidentId,
+      referenceTable: 'accidents',
     });
 
     this.logger.log(`accident ${accidentId} confirmed`);
