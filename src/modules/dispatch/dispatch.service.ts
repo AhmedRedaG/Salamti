@@ -7,7 +7,9 @@ import {
   AccidentType,
   ParamedicStatus,
   PatientStatus,
+  NotificationSlug,
 } from '../../../generated/prisma/client';
+import { NotificationService } from '../notification/notification.service';
 import { getLongLat, orderByDistance } from '../../common/utils/postgis.utils';
 
 @Injectable()
@@ -20,7 +22,10 @@ export class DispatchService {
   // inverse mapping: socketId -> paramedicId
   private socketToParamedic = new Map<string, string>();
 
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   setServer(server: Server) {
     this.server = server;
@@ -152,6 +157,12 @@ export class DispatchService {
       return { success: false };
     }
 
+    // get the accident's driverId to notify the driver
+    const accident = await this.prismaService.accident.findUnique({
+      where: { id: accidentId },
+      select: { driverId: true },
+    });
+
     // create accident response
     const { id: responseId } = await this.prismaService.accidentResponse.create(
       {
@@ -186,6 +197,24 @@ export class DispatchService {
     if (this.server) {
       this.server.emit('accident:taken', { accidentId });
     }
+
+    if (accident) {
+      // notify driver
+      await this.notificationService.queueNotification({
+        recipientId: accident.driverId,
+        typeSlug: NotificationSlug.PARAMEDIC_DISPATCHED,
+        referenceId: accidentId,
+        referenceTable: 'accidents',
+      });
+    }
+
+    // notify paramedic
+    await this.notificationService.queueNotification({
+      recipientId: paramedicId,
+      typeSlug: NotificationSlug.PARAMEDIC_DISPATCHED,
+      referenceId: accidentId,
+      referenceTable: 'accidents',
+    });
 
     return { success: true, data: { accidentId, responseId } };
   }

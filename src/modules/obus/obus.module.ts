@@ -4,9 +4,10 @@ import { VehiclesModule } from '../vehicles/vehicles.module';
 import { ObusController } from './obus.controller';
 import { UsersModule } from '../users/users.module';
 import { ObuMqttModule } from '../obu-mqtt/obu-mqtt.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [VehiclesModule, UsersModule, ObuMqttModule],
+  imports: [VehiclesModule, UsersModule, ObuMqttModule, NotificationModule],
   controllers: [ObusController],
   providers: [ObusService],
   exports: [ObusService],

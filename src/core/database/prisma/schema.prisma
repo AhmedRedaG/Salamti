@@ -404,6 +404,24 @@ enum NotificationPriority {
 enum NotificationSlug {
   NEW_LOGIN_DETECTED @map("new_login_detected")
   PASSWORD_CHANGED   @map("password_changed")
+
+  ACCIDENT_DETECTED    @map("accident_detected")
+  ACCIDENT_CONFIRMED   @map("accident_confirmed")
+  PARAMEDIC_DISPATCHED @map("paramedic_dispatched")
+  PARAMEDIC_ARRIVED    @map("paramedic_arrived")
+  ACCIDENT_COMPLETED   @map("accident_completed")
+  ACCIDENT_CANCELED    @map("accident_canceled")
+
+  OBU_CLAIMED      @map("obu_claimed")
+  OBU_CONNECTED    @map("obu_connected")
+  OBU_DISCONNECTED @map("obu_disconnected")
+  OBU_ACTIVATED    @map("obu_activated")
+  OBU_DEACTIVATED  @map("obu_deactivated")
+  OBU_UPDATED      @map("obu_updated")
+
+  VEHICLE_CREATED @map("vehicle_created")
+  VEHICLE_UPDATED @map("vehicle_updated")
+  VEHICLE_DELETED @map("vehicle_deleted")
 }
 
 model NotificationType {

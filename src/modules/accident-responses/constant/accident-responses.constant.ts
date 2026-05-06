@@ -23,6 +23,8 @@ export const accidentResponseFindOneInclude: Prisma.AccidentResponseInclude = {
               id: true,
               fullName: true,
               phone: true,
+              email: true,
+              voiceCall: true,
               relationship: true,
             },
           },

@@ -27,7 +27,9 @@ export class AccidentWorker extends WorkerHost {
           await this.accidentService.createAccident(job.data);
           break;
         case 'confirmAccident': {
-          const isConfirmed = await this.accidentService.confirmAccident(job.data.accidentId);
+          const isConfirmed = await this.accidentService.confirmAccident(
+            job.data.accidentId,
+          );
           if (isConfirmed) {
             await this.dispatchService.handleConfirmedAccident(
               job.data.accidentId,

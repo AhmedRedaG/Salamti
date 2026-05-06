@@ -15,7 +15,9 @@ import {
   AccidentStatus,
   AccidentType,
   CurrentRoles,
+  NotificationSlug,
 } from '../../../generated/prisma/enums';
+import { NotificationService } from '../notification/notification.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { QueueNames } from '../../types/queue.types';
 import { Queue } from 'bullmq';
@@ -31,6 +33,7 @@ import { AccidentsFindOptionsQueryFilter } from './filter/accidents-find-options
 import { JwtPayload } from '../../types/auth.types';
 import { accidentFindOneInclude } from './constant/accidents.constant';
 import { OrderDirection } from '../../common/filters/main-find-options-query.filter';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AccidentsService {
@@ -41,6 +44,8 @@ export class AccidentsService {
     private readonly prismaService: PrismaService,
     @Inject(forwardRef(() => ObusService))
     private readonly obusService: ObusService,
+    private readonly notificationService: NotificationService,
+    private readonly emailService: EmailService,
   ) {}
 
   async findAll(
@@ -179,7 +184,10 @@ export class AccidentsService {
   }
 
   async cancelAccidentManual(id: string) {
-    const accident = await this.findOrThrow({ id }, { id: true, status: true });
+    const accident = await this.findOrThrow(
+      { id },
+      { id: true, status: true, driverId: true },
+    );
 
     if (accident.status === AccidentStatus.IN_PROGRESS) {
       throw new BadRequestException('accidents.IN_PROGRESS');
@@ -192,6 +200,13 @@ export class AccidentsService {
     await this.prismaService.accident.update({
       where: { id: accident.id },
       data: { status: AccidentStatus.CANCELED },
+    });
+
+    await this.notificationService.queueNotification({
+      recipientId: accident.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_CANCELED,
+      referenceId: accident.id,
+      referenceTable: 'accidents',
     });
 
     this.logger.log(`accident ${id} manually canceled by admin`);
@@ -252,6 +267,16 @@ export class AccidentsService {
           WHERE "id" = ${accident.id}
         `);
 
+    await this.notificationService.queueNotification({
+      recipientId: obu.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_DETECTED,
+      referenceId: accident.id,
+      referenceTable: 'accidents',
+      variables: {
+        obuInst: obuInst,
+      },
+    });
+
     this.logger.log(`accident ${accident.id} created`);
 
     // set delay for confirmation job
@@ -279,6 +304,7 @@ export class AccidentsService {
       },
       select: {
         id: true,
+        driverId: true,
       },
     });
 
@@ -299,6 +325,13 @@ export class AccidentsService {
       },
     });
 
+    await this.notificationService.queueNotification({
+      recipientId: accident.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_CANCELED,
+      referenceId: accident.id,
+      referenceTable: 'accidents',
+    });
+
     this.logger.log(`accident ${accident.id} canceled`);
     return { success: true };
   }
@@ -306,7 +339,21 @@ export class AccidentsService {
   async confirmAccident(accidentId: string): Promise<boolean> {
     const accident = await this.prismaService.accident.findUnique({
       where: { id: accidentId, status: AccidentStatus.RECORDED },
-      select: { id: true },
+      select: {
+        id: true,
+        driverId: true,
+        level: true,
+        time: true,
+        driver: {
+          select: {
+            user: { select: { fullName: true, phone: true } },
+            emergencyContacts: {
+              where: { autoNotify: true },
+              select: { fullName: true, email: true },
+            },
+          },
+        },
+      },
     });
 
     if (!accident) {
@@ -319,7 +366,45 @@ export class AccidentsService {
       data: { status: AccidentStatus.CONFIRMED },
     });
 
+    await this.notificationService.queueNotification({
+      recipientId: accident.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_CONFIRMED,
+      referenceId: accidentId,
+      referenceTable: 'accidents',
+    });
+
     this.logger.log(`accident ${accidentId} confirmed`);
+
+    // fetch accident location
+    const locationData = await this.prismaService.$queryRaw<
+      Array<{ longitude: number; latitude: number }>
+    >`
+      SELECT ${getLongLat('location')}
+      FROM "accidents"
+      WHERE "id" = ${accidentId}::uuid
+    `;
+
+    const location = locationData[0]
+      ? { lat: locationData[0].latitude, lng: locationData[0].longitude }
+      : null;
+
+    // send emails to emergency contacts
+    const contacts = accident.driver?.emergencyContacts || [];
+    for (const contact of contacts) {
+      if (contact.email) {
+        await this.emailService.sendEmergencyAlertMail({
+          contactName: contact.fullName,
+          contactEmail: contact.email,
+          driverName: accident.driver.user.fullName,
+          driverPhone: accident.driver.user.phone,
+          accidentTime: accident.time,
+          accidentLevel: accident.level,
+          accidentStatus: 'CONFIRMED',
+          location,
+        });
+      }
+    }
+
     return true;
   }
 

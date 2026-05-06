@@ -14,7 +14,12 @@ import { getPaginationParams } from '../../common/utils/pagination.utils';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
 import { ObusFindOptionsQueryFilter } from './filter/obus-find-options-query-filter';
 import { JwtPayload } from '../../types/auth.types';
-import { CurrentRoles, ObuStatus } from '../../../generated/prisma/enums';
+import {
+  CurrentRoles,
+  ObuStatus,
+  NotificationSlug,
+} from '../../../generated/prisma/enums';
+import { NotificationService } from '../notification/notification.service';
 import { Prisma } from '../../../generated/prisma/client';
 import { obuFindOneInclude } from './constant/obus.constant';
 import { VehiclesService } from '../vehicles/vehicles.service';
@@ -31,6 +36,7 @@ export class ObusService {
     private readonly vehiclesService: VehiclesService,
     private readonly usersService: UsersService,
     private readonly obuMqttService: ObuMqttService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(dto: CreateObuDto) {
@@ -56,7 +62,7 @@ export class ObusService {
         instNumber: dto.instNumber,
         simCardNumber: dto.simCardNumber,
       },
-      { id: true, driverId: true },
+      { id: true, driverId: true, instNumber: true },
     );
     if (obu.driverId) {
       throw new ConflictException('obus.OBU_ALREADY_CLAIMED');
@@ -78,6 +84,16 @@ export class ObusService {
 
     this.logger.log(`obu ${obu.id} claimed by driver ${userId}`);
 
+    await this.notificationService.queueNotification({
+      recipientId: userId,
+      typeSlug: NotificationSlug.OBU_CLAIMED,
+      referenceId: obu.id,
+      referenceTable: 'obus',
+      variables: {
+        obuInst: obu.instNumber,
+      },
+    });
+
     return {
       success: true,
       data: {
@@ -92,7 +108,7 @@ export class ObusService {
         id: obuId,
         driverId: userId,
       },
-      { id: true, vehicleId: true, isValid: true },
+      { id: true, vehicleId: true, isValid: true, instNumber: true },
     );
 
     if (!obu.isValid) {
@@ -103,9 +119,9 @@ export class ObusService {
       throw new BadRequestException('obus.OBU_IS_ALREADY_CONNECTED_TO_VEHICLE');
     }
 
-    await this.vehiclesService.findOrThrow(
+    const vehicle = await this.vehiclesService.findOrThrow(
       { id: dto.vehicleId, driverId: userId },
-      { id: true },
+      { id: true, licensePlate: true },
     );
 
     const updatedObu = await this.prismaService.obu.update({
@@ -116,6 +132,17 @@ export class ObusService {
     this.logger.log(
       `obu ${obuId} connected to vehicle ${dto.vehicleId} by driver ${userId}`,
     );
+
+    await this.notificationService.queueNotification({
+      recipientId: userId,
+      typeSlug: NotificationSlug.OBU_CONNECTED,
+      referenceId: obuId,
+      referenceTable: 'obus',
+      variables: {
+        obuInst: obu.instNumber,
+        vehicleLicense: vehicle.licensePlate,
+      },
+    });
 
     return {
       success: true,
@@ -131,7 +158,13 @@ export class ObusService {
         id: obuId,
         driverId: userId,
       },
-      { id: true, vehicleId: true, isValid: true, status: true },
+      {
+        id: true,
+        vehicleId: true,
+        isValid: true,
+        status: true,
+        instNumber: true,
+      },
     );
 
     if (!obu.isValid) {
@@ -155,6 +188,16 @@ export class ObusService {
     this.logger.log(
       `obu ${obuId} disconnected from vehicle ${obu.vehicleId} by driver ${userId}`,
     );
+
+    await this.notificationService.queueNotification({
+      recipientId: userId,
+      typeSlug: NotificationSlug.OBU_DISCONNECTED,
+      referenceId: obuId,
+      referenceTable: 'obus',
+      variables: {
+        obuInst: obu.instNumber,
+      },
+    });
 
     return {
       success: true,
@@ -253,7 +296,7 @@ export class ObusService {
   async update(obuId: string, dto: UpdateObuDto) {
     const obu = await this.findOrThrow(
       { id: obuId },
-      { instNumber: true, simCardNumber: true },
+      { instNumber: true, simCardNumber: true, driverId: true },
     );
 
     if (
@@ -290,6 +333,18 @@ export class ObusService {
       where: { id: obuId },
       data,
     });
+
+    if (obu.driverId) {
+      await this.notificationService.queueNotification({
+        recipientId: obu.driverId,
+        typeSlug: NotificationSlug.OBU_UPDATED,
+        referenceId: obuId,
+        referenceTable: 'obus',
+        variables: {
+          obuInst: updatedObu.instNumber,
+        },
+      });
+    }
 
     this.logger.log(`updated obu id: ${obuId} data: ${JSON.stringify(dto)}`);
 
@@ -366,6 +421,16 @@ export class ObusService {
       data: { status: ObuStatus.ACTIVE },
     });
 
+    await this.notificationService.queueNotification({
+      recipientId: userId,
+      typeSlug: NotificationSlug.OBU_ACTIVATED,
+      referenceId: obuId,
+      referenceTable: 'obus',
+      variables: {
+        obuInst: obu.instNumber,
+      },
+    });
+
     return {
       success: true,
     };
@@ -407,6 +472,16 @@ export class ObusService {
     await this.prismaService.obu.update({
       where: { id: obuId },
       data: { status: ObuStatus.READY },
+    });
+
+    await this.notificationService.queueNotification({
+      recipientId: userId,
+      typeSlug: NotificationSlug.OBU_DEACTIVATED,
+      referenceId: obuId,
+      referenceTable: 'obus',
+      variables: {
+        obuInst: obu.instNumber,
+      },
     });
 
     return {
