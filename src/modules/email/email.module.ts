@@ -4,6 +4,7 @@ import { EmailService } from './email.service';
 import { EmailProcessor } from './email.processor';
 import { VerifyAccountMail } from './content/verify.content';
 import { ResetPasswordMail } from './content/reset.content';
+import { EmergencyAlertMail } from './content/emergency.content';
 import { BrevoEmailService } from '../../integrations/brevo-email/brevo-email.service';
 import { QueueNames } from '../../types/queue.types';
 
@@ -18,6 +19,7 @@ import { QueueNames } from '../../types/queue.types';
     EmailProcessor,
     VerifyAccountMail,
     ResetPasswordMail,
+    EmergencyAlertMail,
     BrevoEmailService,
   ],
   exports: [EmailService],

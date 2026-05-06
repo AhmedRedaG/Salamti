@@ -23,6 +23,8 @@ import {
   accidentResponseFindOneInclude,
 } from './constant/accident-responses.constant';
 import { CompleteAccidentResponseDto } from './dto/complete-accident-response.dto';
+import { EmailService } from '../email/email.service';
+import { getLongLat } from '../../common/utils/postgis.utils';
 
 @Injectable()
 export class AccidentResponsesService {
@@ -31,6 +33,7 @@ export class AccidentResponsesService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly notificationService: NotificationService,
+    private readonly emailService: EmailService,
   ) {}
 
   async findAll(
@@ -172,7 +175,22 @@ export class AccidentResponsesService {
       id: true,
       responseStatus: true,
       accidentId: true,
-      accident: { select: { driverId: true } },
+      accident: {
+        select: {
+          driverId: true,
+          level: true,
+          time: true,
+          driver: {
+            select: {
+              user: { select: { fullName: true, phone: true } },
+              emergencyContacts: {
+                where: { autoNotify: true },
+                select: { fullName: true, email: true },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (response.responseStatus !== ResponseStatus.ARRIVED) {
@@ -215,6 +233,39 @@ export class AccidentResponsesService {
     });
 
     this.logger.log(`response id: ${responseId} marked as completed`);
+
+    // fetch accident location
+    const locationData = await this.prismaService.$queryRaw<
+      Array<{ longitude: number; latitude: number }>
+    >`
+      SELECT ${getLongLat('location')}
+      FROM "accidents"
+      WHERE "id" = ${response.accidentId}::uuid
+    `;
+
+    const location = locationData[0]
+      ? { lat: locationData[0].latitude, lng: locationData[0].longitude }
+      : null;
+
+    // send emails to emergency contacts
+    const contacts = response.accident.driver?.emergencyContacts || [];
+    for (const contact of contacts) {
+      if (contact.email) {
+        await this.emailService.sendEmergencyAlertMail({
+          contactName: contact.fullName,
+          contactEmail: contact.email,
+          driverName: response.accident.driver.user.fullName,
+          driverPhone: response.accident.driver.user.phone,
+          accidentTime: response.accident.time,
+          accidentLevel: response.accident.level,
+          accidentStatus: 'COMPLETED',
+          location,
+          patientStatus: dto.patientStatus,
+          paramedicObservations: dto.paramedicObservations,
+          transportingToHospital: dto.transportingToHospital,
+        });
+      }
+    }
 
     return {
       success: true,

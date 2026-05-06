@@ -23,3 +23,21 @@ export interface CreateVerifyMailData {
   email: string;
   verificationToken: string;
 }
+
+export interface CreateEmergencyMailData {
+  contactName: string;
+  contactEmail: string;
+  driverName: string;
+  driverPhone: string;
+  accidentTime: Date;
+  accidentLevel: string;
+  accidentStatus: 'CONFIRMED' | 'COMPLETED';
+  location: {
+    lat: number;
+    lng: number;
+  } | null;
+  // if completed
+  paramedicObservations?: string | null;
+  patientStatus?: string | null;
+  transportingToHospital?: string | null;
+}

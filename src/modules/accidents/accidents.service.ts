@@ -33,6 +33,7 @@ import { AccidentsFindOptionsQueryFilter } from './filter/accidents-find-options
 import { JwtPayload } from '../../types/auth.types';
 import { accidentFindOneInclude } from './constant/accidents.constant';
 import { OrderDirection } from '../../common/filters/main-find-options-query.filter';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AccidentsService {
@@ -44,6 +45,7 @@ export class AccidentsService {
     @Inject(forwardRef(() => ObusService))
     private readonly obusService: ObusService,
     private readonly notificationService: NotificationService,
+    private readonly emailService: EmailService,
   ) {}
 
   async findAll(
@@ -337,7 +339,21 @@ export class AccidentsService {
   async confirmAccident(accidentId: string): Promise<boolean> {
     const accident = await this.prismaService.accident.findUnique({
       where: { id: accidentId, status: AccidentStatus.RECORDED },
-      select: { id: true, driverId: true },
+      select: {
+        id: true,
+        driverId: true,
+        level: true,
+        time: true,
+        driver: {
+          select: {
+            user: { select: { fullName: true, phone: true } },
+            emergencyContacts: {
+              where: { autoNotify: true },
+              select: { fullName: true, email: true },
+            },
+          },
+        },
+      },
     });
 
     if (!accident) {
@@ -358,6 +374,37 @@ export class AccidentsService {
     });
 
     this.logger.log(`accident ${accidentId} confirmed`);
+
+    // fetch accident location
+    const locationData = await this.prismaService.$queryRaw<
+      Array<{ longitude: number; latitude: number }>
+    >`
+      SELECT ${getLongLat('location')}
+      FROM "accidents"
+      WHERE "id" = ${accidentId}::uuid
+    `;
+
+    const location = locationData[0]
+      ? { lat: locationData[0].latitude, lng: locationData[0].longitude }
+      : null;
+
+    // send emails to emergency contacts
+    const contacts = accident.driver?.emergencyContacts || [];
+    for (const contact of contacts) {
+      if (contact.email) {
+        await this.emailService.sendEmergencyAlertMail({
+          contactName: contact.fullName,
+          contactEmail: contact.email,
+          driverName: accident.driver.user.fullName,
+          driverPhone: accident.driver.user.phone,
+          accidentTime: accident.time,
+          accidentLevel: accident.level,
+          accidentStatus: 'CONFIRMED',
+          location,
+        });
+      }
+    }
+
     return true;
   }
 
