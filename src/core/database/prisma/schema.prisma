@@ -362,6 +362,8 @@ model AccidentResponse {
   dispatchedAt           DateTime       @default(now()) @map("dispatched_at")
   arrivedAt              DateTime?      @map("arrived_at")
   completedAt            DateTime?      @map("completed_at")
+  canceledAt             DateTime?      @map("canceled_at")
+  cancelReason           String?        @map("cancel_reason") @db.VarChar(150)
   paramedicObservations  String?        @map("paramedic_observations") @db.VarChar(150)
   transportingToHospital String?        @map("transporting_to_hospital") @db.VarChar(150)
   patientStatus          PatientStatus  @map("patient_status")

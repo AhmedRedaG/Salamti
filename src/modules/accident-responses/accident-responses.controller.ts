@@ -15,6 +15,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentRoles } from '../../../generated/prisma/enums';
 import type { JwtPayload } from '../../types/auth.types';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
+import { CancelAccidentDto } from './dto/cancel-accident-response.dto';
 
 @Controller('accident-responses')
 export class AccidentResponsesController {
@@ -62,5 +63,15 @@ export class AccidentResponsesController {
     @Body() dto: CompleteAccidentResponseDto,
   ) {
     return this.accidentResponsesService.markCompleted(userId, id, dto);
+  }
+
+  @Roles(CurrentRoles.PARAMEDIC)
+  @Patch(':id/cancel')
+  markCanceled(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelAccidentDto,
+  ) {
+    return this.accidentResponsesService.markCanceled(userId, id, dto);
   }
 }
