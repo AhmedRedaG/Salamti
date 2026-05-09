@@ -66,8 +66,10 @@ export class UsersService {
 
     // automatically create related data based on role
     if (dto.role === CurrentRoles.PARAMEDIC) {
+      // TODO: remove verification and authorization after testing
+      data.isVerified = true;
       data.paramedic = {
-        create: { employeeId: employeeId! },
+        create: { employeeId: employeeId!, isAuthorized: true },
       };
     }
     if (dto.role === CurrentRoles.DRIVER) {

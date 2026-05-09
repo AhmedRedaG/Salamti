@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -121,6 +122,27 @@ export class ParamedicsService {
         paramedicLocation,
       },
     };
+  }
+
+  // TODO: remove this endpoint before production
+  async forceAvailability(userId: string) {
+    const paramedic = await this.findOrThrow(
+      { id: userId },
+      { id: true, status: true },
+    );
+
+    if (paramedic.status === ParamedicStatus.AVAILABLE) {
+      throw new BadRequestException('paramedics.PARAMEDIC_ALREADY_AVAILABLE');
+    }
+
+    await this.prismaService.paramedic.update({
+      where: { id: userId },
+      data: { status: ParamedicStatus.AVAILABLE },
+    });
+
+    this.logger.log(`paramedic id: ${userId} status changed to available`);
+
+    return { success: true };
   }
 
   // ========== ws functions ==========
