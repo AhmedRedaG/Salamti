@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../../../generated/prisma/client';
 import { NotificationService } from '../notification/notification.service';
 import { getLongLat, orderByDistance } from '../../common/utils/postgis.utils';
+import { AccidentsService } from '../accidents/accidents.service';
 
 @Injectable()
 export class DispatchService {
@@ -25,6 +26,8 @@ export class DispatchService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => AccidentsService))
+    private readonly accidentsService: AccidentsService,
   ) {}
 
   setServer(server: Server) {
@@ -48,70 +51,52 @@ export class DispatchService {
     }
   }
 
-  async handleConfirmedAccident(accidentId: string) {
+  async handleConfirmedAccident(accidentId: string, retryCount: number) {
     this.logger.log(`handling confirmed accident dispatch: ${accidentId}`);
 
     // get accident details and location
-    const accidentLocationResult = (await this.prismaService.$queryRaw`
-      SELECT id, level, type, ${getLongLat('location')}
+    const [accidentInfo] = (await this.prismaService.$queryRaw`
+      SELECT id, level, type, status, ${getLongLat('location')}
       FROM "accidents"
       WHERE id = ${accidentId}::uuid
+      LIMIT 1
     `) as {
       longitude: number;
       latitude: number;
       id: string;
       level: AccidentLevel;
       type: AccidentType;
+      status: AccidentStatus;
     }[];
 
-    if (!accidentLocationResult || accidentLocationResult.length === 0) {
+    if (!accidentInfo) {
       this.logger.error(`accident ${accidentId} not found during dispatch`);
-      return { success: false };
+      return false;
     }
 
-    const accidentInfo = accidentLocationResult[0];
-    const { longitude, latitude } = accidentInfo;
+    // because of using $queryRaw, it stores enums as lowercase strings
+    if (accidentInfo.status !== AccidentStatus.CONFIRMED.toLocaleLowerCase()) {
+      this.logger.warn(`accident ${accidentId} not in confirmed state`);
+      return false;
+    }
 
+    // get nearest available paramedics
+    const { longitude, latitude } = accidentInfo;
     const availableParamedics = await this.getAvailableParamedics(
       longitude,
       latitude,
     );
 
-    // TODO: implement retry logic using queue
-    // retry for 3 times with 5 minutes interval if no available paramedics found
-    // let retries = 3;
-    // for (retries; retries > 0; retries--) {
-    //   if (availableParamedics.length === 0) {
-    //     this.logger.warn(
-    //       `no available paramedics found for accident ${accidentId}`,
-    //     );
-    //     // wait for 5 minutes and try again
-    //     // await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 5));
-    //     availableParamedics = await this.getAvailableParamedics(
-    //       longitude,
-    //       latitude,
-    //     );
-    //   } else {
-    //     break;
-    //   }
-    // }
-    // if (retries === 0) {
-    //   this.logger.error(
-    //     `no available paramedics found for accident ${accidentId}`,
-    //   );
-    //   return { success: false };
-    // }
-
     if (availableParamedics.length === 0) {
       this.logger.warn(
         `no available paramedics found for accident ${accidentId}`,
       );
-      return { success: false };
     }
 
-    // get top 5 available paramedics
+    // get top 5 nearest available paramedics
     const topAvailableParamedics = availableParamedics.slice(0, 5);
 
+    let atLeastOneOnlineParamedic = false;
     // emit 'accident:confirmed' to the connected ones among the top available
     for (const paramedic of topAvailableParamedics) {
       const socketId = this.activeParamedics.get(paramedic.id);
@@ -119,18 +104,57 @@ export class DispatchService {
         this.logger.log(
           `dispatching accident ${accidentId} to paramedic ${paramedic.id} (distance: ${paramedic.distance})`,
         );
+        atLeastOneOnlineParamedic = true;
         this.server.to(socketId).emit('accident:confirmed', {
-          accidentId: accidentInfo.id,
-          type: accidentInfo.type,
-          level: accidentInfo.level,
+          accidentId,
           longitude,
           latitude,
+          type: accidentInfo.type,
+          level: accidentInfo.level,
           distance: paramedic.distance,
         });
+      } else {
+        this.logger.warn(
+          `paramedic ${paramedic.id} is not online for accident ${accidentId}, trying next of ${topAvailableParamedics.length} paramedics`,
+        );
       }
     }
 
-    return { success: true };
+    // retry logic for dispatching if it was not accepted yet
+    const maxRetries = atLeastOneOnlineParamedic ? 15 : 5;
+
+    if (retryCount >= maxRetries) {
+      this.logger.warn(
+        `accident ${accidentId} reached maximum retries (${maxRetries}) without acceptance, marking as FAILED`,
+      );
+      await this.prismaService.accident.update({
+        where: { id: accidentId },
+        data: {
+          status: AccidentStatus.FAILED,
+        },
+      });
+    } else {
+      // delay logic:
+      // if someone is online, wait 60s for them to accept, then re-alert
+      // if no one is online, use exponential backoff
+      const delay = atLeastOneOnlineParamedic
+        ? 1000 * 60 // 60 seconds
+        : 1000 * 60 * retryCount ** 2;
+
+      await this.accidentsService.queueHandleConfirmedAccident({
+        accidentId,
+        retryCount: retryCount + 1,
+        delay,
+      });
+
+      this.logger.log(
+        `scheduled next dispatch attempt for accident ${accidentId} in ${
+          delay / 1000
+        }s (retry: ${retryCount + 1}/${maxRetries})`,
+      );
+    }
+
+    return true;
   }
 
   async acceptAccident(paramedicId: string, accidentId: string) {

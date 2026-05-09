@@ -14,6 +14,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentRoles } from '../../../generated/prisma/enums';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
 import { ParamedicsLocationFindOptionsQueryFilter } from './filter/users-find-options-query-filter';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('paramedics')
 export class ParamedicsController {
@@ -51,5 +52,12 @@ export class ParamedicsController {
   @Get(':id/location')
   findParamedicLocation(@Param('id', ParseUUIDPipe) id: string) {
     return this.paramedicsService.findParamedicLocation(id);
+  }
+
+  // TODO: remove this endpoint before production
+  @HttpCode(HttpStatus.OK)
+  @Post('force-availability')
+  forceAvailability(@CurrentUser('sub') userId: string) {
+    return this.paramedicsService.forceAvailability(userId);
   }
 }

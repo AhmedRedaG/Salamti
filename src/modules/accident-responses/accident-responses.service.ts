@@ -25,6 +25,7 @@ import {
 import { CompleteAccidentResponseDto } from './dto/complete-accident-response.dto';
 import { EmailService } from '../email/email.service';
 import { getLongLat } from '../../common/utils/postgis.utils';
+import { CancelAccidentDto } from './dto/cancel-accident-response.dto';
 
 @Injectable()
 export class AccidentResponsesService {
@@ -266,6 +267,70 @@ export class AccidentResponsesService {
         });
       }
     }
+
+    return {
+      success: true,
+      data: {
+        response: updatedResponse,
+      },
+    };
+  }
+
+  async markCanceled(
+    userId: string,
+    responseId: string,
+    dto: CancelAccidentDto,
+  ) {
+    const where: Prisma.AccidentResponseWhereInput = {
+      id: responseId,
+      paramedicId: userId,
+    };
+
+    const response = await this.findOrThrow(where, {
+      id: true,
+      responseStatus: true,
+      accidentId: true,
+      accident: { select: { driverId: true } },
+    });
+
+    if (response.responseStatus === ResponseStatus.CANCELED) {
+      throw new BadRequestException(
+        'accident-responses.RESPONSE_ALREADY_CANCELED',
+      );
+    }
+
+    const now = new Date();
+    const [updatedResponse] = await this.prismaService.$transaction([
+      this.prismaService.accidentResponse.update({
+        where: { id: responseId },
+        data: {
+          responseStatus: ResponseStatus.CANCELED,
+          canceledAt: now,
+          cancelReason: dto.cancelReason,
+        },
+      }),
+      this.prismaService.accident.update({
+        where: { id: response.accidentId },
+        data: {
+          status: AccidentStatus.CANCELED,
+        },
+      }),
+      this.prismaService.paramedic.update({
+        where: { id: userId },
+        data: {
+          status: ParamedicStatus.AVAILABLE,
+        },
+      }),
+    ]);
+
+    await this.notificationService.queueNotification({
+      recipientId: response.accident.driverId,
+      typeSlug: NotificationSlug.ACCIDENT_CANCELED,
+      referenceId: response.accidentId,
+      referenceTable: 'accidents',
+    });
+
+    this.logger.log(`response id: ${responseId} marked as canceled`);
 
     return {
       success: true,

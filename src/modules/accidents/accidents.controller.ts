@@ -16,6 +16,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../../types/auth.types';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
 import { AccidentsFindOptionsQueryFilter } from './filter/accidents-find-options-query-filter';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('accidents')
 export class AccidentsController {
@@ -47,12 +48,14 @@ export class AccidentsController {
   }
 
   // TODO: remove this endpoint before production
+  @Public()
   @Post('fake-create')
   fakeAccidentCreation(@Body() dto: CreateAccidentDto) {
     return this.accidentsService.createAccident(dto);
   }
 
   // TODO: remove this endpoint before production
+  @Public()
   @Post('fake-cancel')
   fakeAccidentsCancelling(@Body('instNumber') obuInst: string) {
     return this.accidentsService.cancelAccident(obuInst);
