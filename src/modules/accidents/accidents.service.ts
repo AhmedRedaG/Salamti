@@ -217,7 +217,9 @@ export class AccidentsService {
   // =============== internal functions ===============
 
   async queueCreateAccident(payload: CreateAccidentDto) {
-    const job = await this.accidentQueue.add('createAccident', payload);
+    const job = await this.accidentQueue.add('createAccident', payload, {
+      jobId: `create-accident-${payload.obuInst}`,
+    });
 
     this.logger.log(`queued accident job ${job.id}`);
   }
@@ -288,7 +290,10 @@ export class AccidentsService {
     await this.accidentQueue.add(
       'confirmAccident',
       { accidentId: accident.id },
-      { delay },
+      {
+        delay,
+        jobId: `confirm-accident-${accident.id}`,
+      },
     );
 
     this.logger.log(`queued confirmAccident job for accident ${accident.id}`);
@@ -405,7 +410,33 @@ export class AccidentsService {
       }
     }
 
+    // queue to confirmed accident handler
+    await this.queueHandleConfirmedAccident({ accidentId, retryCount: 1 });
+
     return true;
+  }
+
+  async queueHandleConfirmedAccident({
+    accidentId,
+    retryCount,
+    delay,
+  }: {
+    accidentId: string;
+    retryCount: number;
+    delay?: number;
+  }) {
+    await this.accidentQueue.add(
+      'handleConfirmedAccident',
+      { accidentId, retryCount },
+      {
+        ...(delay && { delay }),
+        jobId: `confirmed-accident-${accidentId}-retry-${retryCount}`,
+      },
+    );
+
+    this.logger.log(
+      `queued handleConfirmedAccident job for accident ${accidentId}, retry count: ${retryCount}`,
+    );
   }
 
   // =============== helper functions ===============

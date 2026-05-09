@@ -312,7 +312,7 @@ export class AccidentResponsesService {
       this.prismaService.accident.update({
         where: { id: response.accidentId },
         data: {
-          status: AccidentStatus.FAILED,
+          status: AccidentStatus.CANCELED,
         },
       }),
       this.prismaService.paramedic.update({
