@@ -6,7 +6,6 @@ import {
   RequestTimeoutException,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import appConfig from '../../config/app.config';
 import { ObuAccidentAlert, ObuMqttCommands } from '../../types/obu-mqtt.types';
 import {
   catchError,
@@ -15,22 +14,24 @@ import {
   timeout,
   toArray,
 } from 'rxjs';
+import { ConfigService } from '@nestjs/config';
 import { AccidentsService } from '../accidents/accidents.service';
 import { AccidentType } from '../../../generated/prisma/enums';
-
-const mqttConfig = appConfig().mqtt;
-const MQTT_CLIENT_NAME = mqttConfig.clientName;
-const MQTT_BASE_TOPIC = mqttConfig.baseTopic;
 
 @Injectable()
 export class ObuMqttService {
   private readonly logger = new Logger(ObuMqttService.name);
+  private readonly MQTT_BASE_TOPIC: string;
 
   constructor(
-    @Inject(MQTT_CLIENT_NAME) private readonly mqttClient: ClientProxy,
+    private readonly configService: ConfigService,
+    @Inject('HIVEMQ_CLIENT') private readonly mqttClient: ClientProxy,
     @Inject(forwardRef(() => AccidentsService))
     private readonly accidentsService: AccidentsService,
-  ) {}
+  ) {
+    this.MQTT_BASE_TOPIC =
+      this.configService.getOrThrow<string>('mqtt.baseTopic');
+  }
 
   async handleAccidentAlert(data: ObuAccidentAlert) {
     const { event, inst, lat, lng, ...restData } = data;
@@ -78,8 +79,8 @@ export class ObuMqttService {
       // firstValueFrom waits for the very first message with isDisposed: true
       const response = await firstValueFrom(
         this.mqttClient.send(targetTopic, requestPayload).pipe(
-          // abort if the OBU doesnt reply within 5 seconds
-          timeout(1000 * 30), // 30 seconds
+          // abort if the OBU doesnt reply
+          timeout(this.configService.getOrThrow<number>('mqtt.commandTimeout')),
           catchError((err) => {
             throw new RequestTimeoutException(
               `OBU did not respond to '${action}' command.`,
@@ -108,7 +109,7 @@ export class ObuMqttService {
         this.mqttClient.send(targetTopic, requestPayload).pipe(
           // collect all stream emissions into a single array
           toArray(),
-          timeout(1000 * 60 * 10), // history can be large and take time to transfer
+          timeout(this.configService.getOrThrow<number>('mqtt.historyTimeout')),
           catchError((err) => {
             throw new RequestTimeoutException(
               `OBU chunk transfer timed out for '${action}'.`,
@@ -142,6 +143,6 @@ export class ObuMqttService {
   }
 
   generatePublishTopicName(instNumber: string) {
-    return MQTT_BASE_TOPIC + instNumber;
+    return this.MQTT_BASE_TOPIC + instNumber;
   }
 }

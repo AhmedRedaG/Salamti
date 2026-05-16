@@ -119,10 +119,43 @@ export default () => ({
     baseTopic: 'a4a489b0-6237-4dd7-a012-a8b792ec4841/salamti/obu/',
     host: process.env.MQTT_HOST,
     port: +process.env.MQTT_PORT!,
+    commandTimeout: 30000,
+    historyTimeout: 600000, // 10 minutes
   },
 
   phone: {
     regex: /^\+201[0125][0-9]{8}$/,
     message: 'invalid egyptian phone number',
+  },
+
+  accident: {
+    confirmationDelay: {
+      accident: 20000,
+      alert: 10000,
+    },
+    scoring: {
+      gDivisor: 8,
+      gyroDivisor: 300,
+      gWeight: 0.7,
+      gyroWeight: 0.3,
+      thresholds: {
+        high: 0.75,
+        medium: 0.4,
+        low: 0,
+      },
+    },
+    dispatch: {
+      initialRetryCount: 1,
+      nearestParamedicsCount: 5,
+      maxRetries: {
+        online: 15,
+        offline: 5,
+      },
+      delay: {
+        online: 60000,
+        offlineBase: 60000,
+      },
+      maxParamedicsToFetch: 10,
+    },
   },
 });

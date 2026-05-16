@@ -1,4 +1,5 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server } from 'socket.io';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
 import {
@@ -28,6 +29,7 @@ export class DispatchService {
     private readonly notificationService: NotificationService,
     @Inject(forwardRef(() => AccidentsService))
     private readonly accidentsService: AccidentsService,
+    private readonly configService: ConfigService,
   ) {}
 
   setServer(server: Server) {
@@ -93,8 +95,14 @@ export class DispatchService {
       );
     }
 
-    // get top 5 nearest available paramedics
-    const topAvailableParamedics = availableParamedics.slice(0, 5);
+    // get top nearest available paramedics
+    const nearestParamedicsCount = this.configService.getOrThrow<number>(
+      'accident.dispatch.nearestParamedicsCount',
+    );
+    const topAvailableParamedics = availableParamedics.slice(
+      0,
+      nearestParamedicsCount,
+    );
 
     let atLeastOneOnlineParamedic = false;
     // emit 'accident:confirmed' to the connected ones among the top available
@@ -121,7 +129,9 @@ export class DispatchService {
     }
 
     // retry logic for dispatching if it was not accepted yet
-    const maxRetries = atLeastOneOnlineParamedic ? 15 : 5;
+    const maxRetries = atLeastOneOnlineParamedic
+      ? this.configService.getOrThrow<number>('accident.dispatch.maxRetries.online')
+      : this.configService.getOrThrow<number>('accident.dispatch.maxRetries.offline');
 
     if (retryCount >= maxRetries) {
       this.logger.warn(
@@ -135,11 +145,17 @@ export class DispatchService {
       });
     } else {
       // delay logic:
-      // if someone is online, wait 60s for them to accept, then re-alert
+      // if someone is online, wait for them to accept, then re-alert
       // if no one is online, use exponential backoff
+      const onlineDelay = this.configService.getOrThrow<number>(
+        'accident.dispatch.delay.online',
+      );
+      const offlineBaseDelay = this.configService.getOrThrow<number>(
+        'accident.dispatch.delay.offlineBase',
+      );
       const delay = atLeastOneOnlineParamedic
-        ? 1000 * 60 // 60 seconds
-        : 1000 * 60 * retryCount ** 2;
+        ? onlineDelay
+        : offlineBaseDelay * retryCount ** 2;
 
       await this.accidentsService.queueHandleConfirmedAccident({
         accidentId,
@@ -255,7 +271,9 @@ export class DispatchService {
       WHERE status = 'available'
         AND location IS NOT NULL
       ORDER BY "distance"
-      LIMIT 10
+      LIMIT ${this.configService.getOrThrow<number>(
+        'accident.dispatch.maxParamedicsToFetch',
+      )}
     `) as { id: string; status: ParamedicStatus; distance: number }[];
   }
 }
