@@ -7,6 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../core/database/prisma/prisma.service';
 import { CreateAccidentDto } from './dto/create-accident.dto';
 import { ObusService } from '../obus/obus.service';
@@ -46,6 +47,7 @@ export class AccidentsService {
     private readonly obusService: ObusService,
     private readonly notificationService: NotificationService,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   async findAll(
@@ -284,7 +286,10 @@ export class AccidentsService {
     // set delay for confirmation job
     // if accident is type: accident -> 20 seconds
     // else -> 10 seconds
-    const delay = type === AccidentType.ACCIDENTS ? 20000 : 10000;
+    const delay =
+      type === AccidentType.ACCIDENTS
+        ? this.configService.get<number>('accident.confirmationDelay.accident')
+        : this.configService.get<number>('accident.confirmationDelay.alert');
 
     // schedule confirmation job
     await this.accidentQueue.add(
@@ -393,25 +398,31 @@ export class AccidentsService {
       ? { lat: locationData[0].latitude, lng: locationData[0].longitude }
       : null;
 
+    // TODO: uncomment this after dev phase
     // send emails to emergency contacts
-    const contacts = accident.driver?.emergencyContacts || [];
-    for (const contact of contacts) {
-      if (contact.email) {
-        await this.emailService.sendEmergencyAlertMail({
-          contactName: contact.fullName,
-          contactEmail: contact.email,
-          driverName: accident.driver.user.fullName,
-          driverPhone: accident.driver.user.phone,
-          accidentTime: accident.time,
-          accidentLevel: accident.level,
-          accidentStatus: 'CONFIRMED',
-          location,
-        });
-      }
-    }
+    // const contacts = accident.driver?.emergencyContacts || [];
+    // for (const contact of contacts) {
+    //   if (contact.email) {
+    //     await this.emailService.sendEmergencyAlertMail({
+    //       contactName: contact.fullName,
+    //       contactEmail: contact.email,
+    //       driverName: accident.driver.user.fullName,
+    //       driverPhone: accident.driver.user.phone,
+    //       accidentTime: accident.time,
+    //       accidentLevel: accident.level,
+    //       accidentStatus: 'CONFIRMED',
+    //       location,
+    //     });
+    //   }
+    // }
 
     // queue to confirmed accident handler
-    await this.queueHandleConfirmedAccident({ accidentId, retryCount: 1 });
+    await this.queueHandleConfirmedAccident({
+      accidentId,
+      retryCount: this.configService.getOrThrow<number>(
+        'accident.dispatch.initialRetryCount',
+      ),
+    });
 
     return true;
   }
@@ -488,16 +499,35 @@ export class AccidentsService {
       return AccidentLevel.UNKNOWN;
     }
 
-    const gScore = Math.min(peakG / 8, 1);
+    const gDivisor = this.configService.getOrThrow<number>(
+      'accident.scoring.gDivisor',
+    );
+    const gyroDivisor = this.configService.getOrThrow<number>(
+      'accident.scoring.gyroDivisor',
+    );
+    const gWeight = this.configService.getOrThrow<number>(
+      'accident.scoring.gWeight',
+    );
+    const gyroWeight = this.configService.getOrThrow<number>(
+      'accident.scoring.gyroWeight',
+    );
+
+    const gScore = Math.min(peakG / gDivisor, 1);
 
     const gyroMagnitude = Math.sqrt(gyroX ** 2 + gyroY ** 2);
-    const gyroScore = Math.min(gyroMagnitude / 300, 1);
+    const gyroScore = Math.min(gyroMagnitude / gyroDivisor, 1);
 
-    const score = 0.7 * gScore + 0.3 * gyroScore;
+    const score = gWeight * gScore + gyroWeight * gyroScore;
 
-    if (score >= 0.75) return AccidentLevel.HIGH;
-    if (score >= 0.4) return AccidentLevel.MEDIUM;
-    if (score > 0) return AccidentLevel.LOW;
+    const thresholds = this.configService.getOrThrow<{
+      high: number;
+      medium: number;
+      low: number;
+    }>('accident.scoring.thresholds');
+
+    if (score >= thresholds.high) return AccidentLevel.HIGH;
+    if (score >= thresholds.medium) return AccidentLevel.MEDIUM;
+    if (score > thresholds.low) return AccidentLevel.LOW;
 
     return AccidentLevel.UNKNOWN;
   }
