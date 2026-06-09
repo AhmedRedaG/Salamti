@@ -13,6 +13,7 @@ import {
 import { NotificationService } from '../notification/notification.service';
 import { getLongLat, orderByDistance } from '../../common/utils/postgis.utils';
 import { AccidentsService } from '../accidents/accidents.service';
+import { ParamedicsService } from '../paramedics/paramedics.service';
 
 @Injectable()
 export class DispatchService {
@@ -30,6 +31,7 @@ export class DispatchService {
     @Inject(forwardRef(() => AccidentsService))
     private readonly accidentsService: AccidentsService,
     private readonly configService: ConfigService,
+    private readonly paramedicsService: ParamedicsService,
   ) {}
 
   setServer(server: Server) {
@@ -51,13 +53,7 @@ export class DispatchService {
       this.socketToParamedic.delete(socketId);
 
       // mark paramedic as unavailable in the database in case of unexpected disconnect
-      this.prismaService.paramedic.update({
-        where: {
-          id: paramedicId,
-          status: ParamedicStatus.AVAILABLE,
-        },
-        data: { status: ParamedicStatus.UNAVAILABLE },
-      });
+      this.paramedicsService.paramedicUnavailable(paramedicId);
 
       this.logger.log(`paramedic ${paramedicId} disconnected (${socketId})`);
     }
