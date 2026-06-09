@@ -16,6 +16,20 @@ export class DriversService {
 
   constructor(private readonly prismaService: PrismaService) {}
 
+  async findMedicalInfo(userId: string) {
+    const driver = await this.findOrThrow(
+      { id: userId },
+      { id: true, age: true, bloodType: true, medicalConditions: true },
+    );
+
+    return {
+      success: true,
+      data: {
+        driver,
+      },
+    };
+  }
+
   async update(
     userPayload: JwtPayload,
     driverId: string,

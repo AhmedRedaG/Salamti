@@ -1,4 +1,11 @@
-import { Body, Controller, Param, ParseUUIDPipe, Patch } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+} from '@nestjs/common';
 import { DriversService } from './drivers.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentRoles } from '../../../generated/prisma/enums';
@@ -9,6 +16,12 @@ import { UpdateDriverDto } from './dto/update-driver.dto';
 @Controller('drivers')
 export class DriversController {
   constructor(private readonly driversService: DriversService) {}
+
+  @Roles(CurrentRoles.DRIVER)
+  @Get('medical-info')
+  findMedicalInfo(@CurrentUser('sub') userId: string) {
+    return this.driversService.findMedicalInfo(userId);
+  }
 
   @Roles(CurrentRoles.DRIVER, CurrentRoles.ADMIN)
   @Patch(':id')

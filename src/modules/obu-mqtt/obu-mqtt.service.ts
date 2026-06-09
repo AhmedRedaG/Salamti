@@ -58,7 +58,7 @@ export class ObuMqttService {
   }
 
   async handleAlarmCanceledByDriver(data: ObuAccidentAlert) {
-    await this.accidentsService.cancelAccident(data.inst);
+    await this.accidentsService.queueCancelAccident(data.inst);
   }
 
   // FEATURE PLAN

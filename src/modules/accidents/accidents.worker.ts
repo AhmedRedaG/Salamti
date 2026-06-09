@@ -26,6 +26,9 @@ export class AccidentWorker extends WorkerHost {
         case 'createAccident':
           await this.accidentService.createAccident(job.data);
           break;
+        case 'cancelAccident':
+          await this.accidentService.cancelAccident(job.data.obuInstNumber);
+          break;
         case 'confirmAccident':
           await this.accidentService.confirmAccident(job.data.accidentId);
           break;
