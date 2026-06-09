@@ -49,6 +49,16 @@ export class DispatchService {
     if (paramedicId) {
       this.activeParamedics.delete(paramedicId);
       this.socketToParamedic.delete(socketId);
+
+      // mark paramedic as unavailable in the database in case of unexpected disconnect
+      this.prismaService.paramedic.update({
+        where: {
+          id: paramedicId,
+          status: ParamedicStatus.AVAILABLE,
+        },
+        data: { status: ParamedicStatus.UNAVAILABLE },
+      });
+
       this.logger.log(`paramedic ${paramedicId} disconnected (${socketId})`);
     }
   }
@@ -130,8 +140,12 @@ export class DispatchService {
 
     // retry logic for dispatching if it was not accepted yet
     const maxRetries = atLeastOneOnlineParamedic
-      ? this.configService.getOrThrow<number>('accident.dispatch.maxRetries.online')
-      : this.configService.getOrThrow<number>('accident.dispatch.maxRetries.offline');
+      ? this.configService.getOrThrow<number>(
+          'accident.dispatch.maxRetries.online',
+        )
+      : this.configService.getOrThrow<number>(
+          'accident.dispatch.maxRetries.offline',
+        );
 
     if (retryCount >= maxRetries) {
       this.logger.warn(
