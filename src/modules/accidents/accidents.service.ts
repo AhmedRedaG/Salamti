@@ -35,6 +35,7 @@ import { JwtPayload } from '../../types/auth.types';
 import { accidentFindOneInclude } from './constant/accidents.constant';
 import { OrderDirection } from '../../common/filters/main-find-options-query.filter';
 import { EmailService } from '../email/email.service';
+import { CreateAppSosAccidentDto } from './dto/create-app-sos-accident.dto';
 
 @Injectable()
 export class AccidentsService {
@@ -49,6 +50,22 @@ export class AccidentsService {
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
   ) {}
+
+  async createAppSosAccident(id: string, dto: CreateAppSosAccidentDto) {
+    const obu = await this.obusService.findOrThrow(
+      { driverId: id },
+      { id: true, instNumber: true },
+    );
+
+    const createAccidentDto: CreateAccidentDto = {
+      obuInst: obu.instNumber,
+      type: AccidentType.SOS,
+      lat: dto.lat,
+      lng: dto.lng,
+    };
+
+    return await this.createAccident(createAccidentDto);
+  }
 
   async findAll(
     userPayload: JwtPayload,

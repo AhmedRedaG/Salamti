@@ -17,10 +17,21 @@ import type { JwtPayload } from '../../types/auth.types';
 import { PaginationQueryFilter } from '../../common/filters/pagination-query.filter';
 import { AccidentsFindOptionsQueryFilter } from './filter/accidents-find-options-query-filter';
 import { Public } from '../../common/decorators/public.decorator';
+import { CreateAppSosAccidentDto } from './dto/create-app-sos-accident.dto';
 
 @Controller('accidents')
 export class AccidentsController {
   constructor(private readonly accidentsService: AccidentsService) {}
+
+  // create accident from app sos button
+  @Roles(CurrentRoles.DRIVER)
+  @Post('app-sos')
+  createAppSosAccident(
+    @CurrentUser('sub') id: string,
+    @Body() dto: CreateAppSosAccidentDto,
+  ) {
+    return this.accidentsService.createAppSosAccident(id, dto);
+  }
 
   @Roles(CurrentRoles.ADMIN, CurrentRoles.DRIVER)
   @Get()
