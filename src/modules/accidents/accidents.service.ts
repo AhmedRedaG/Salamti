@@ -220,7 +220,7 @@ export class AccidentsService {
 
   async queueCreateAccident(payload: CreateAccidentDto) {
     const job = await this.accidentQueue.add('createAccident', payload, {
-      jobId: `create-accident-${payload.obuInst}`,
+      jobId: `create-accident-${payload.obuInst}-${Date.now()}`,
     });
 
     this.logger.log(`queued accident job ${job.id}`);
@@ -303,6 +303,18 @@ export class AccidentsService {
 
     this.logger.log(`queued confirmAccident job for accident ${accident.id}`);
     return { success: true };
+  }
+
+  async queueCancelAccident(obuInstNumber: string) {
+    const job = await this.accidentQueue.add(
+      'cancelAccident',
+      { obuInstNumber },
+      {
+        jobId: `cancel-accident-${obuInstNumber}-${Date.now()}`,
+      },
+    );
+
+    this.logger.log(`queued cancelAccident job ${job.id}`);
   }
 
   async cancelAccident(obuInstNumber: string) {
