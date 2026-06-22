@@ -35,7 +35,7 @@ export class UsersService {
     private readonly rolesService: RolesService,
     private readonly notificationService: NotificationService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   async create(dto: CreateUserDto) {
     // check if user already exists by email or phone

@@ -35,7 +35,7 @@ export class AccidentResponsesService {
     private readonly prismaService: PrismaService,
     private readonly notificationService: NotificationService,
     private readonly emailService: EmailService,
-  ) { }
+  ) {}
 
   async findAll(
     userPayload: JwtPayload,
@@ -250,24 +250,24 @@ export class AccidentResponsesService {
 
     // TODO: uncomment this after dev phase
     // send emails to emergency contacts
-    const contacts = response.accident.driver?.emergencyContacts || [];
-    for (const contact of contacts) {
-      if (contact.email) {
-        await this.emailService.sendEmergencyAlertMail({
-          contactName: contact.fullName,
-          contactEmail: contact.email,
-          driverName: response.accident.driver.user.fullName,
-          driverPhone: response.accident.driver.user.phone,
-          accidentTime: response.accident.time,
-          accidentLevel: response.accident.level,
-          accidentStatus: 'COMPLETED',
-          location,
-          patientStatus: dto.patientStatus,
-          paramedicObservations: dto.paramedicObservations,
-          transportingToHospital: dto.transportingToHospital,
-        });
-      }
-    }
+    // const contacts = response.accident.driver?.emergencyContacts || [];
+    // for (const contact of contacts) {
+    //   if (contact.email) {
+    //     await this.emailService.sendEmergencyAlertMail({
+    //       contactName: contact.fullName,
+    //       contactEmail: contact.email,
+    //       driverName: response.accident.driver.user.fullName,
+    //       driverPhone: response.accident.driver.user.phone,
+    //       accidentTime: response.accident.time,
+    //       accidentLevel: response.accident.level,
+    //       accidentStatus: 'COMPLETED',
+    //       location,
+    //       patientStatus: dto.patientStatus,
+    //       paramedicObservations: dto.paramedicObservations,
+    //       transportingToHospital: dto.transportingToHospital,
+    //     });
+    //   }
+    // }
 
     return {
       success: true,
