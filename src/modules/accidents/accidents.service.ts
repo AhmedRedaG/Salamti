@@ -429,21 +429,21 @@ export class AccidentsService {
 
     // TODO: uncomment this after dev phase
     // send emails to emergency contacts
-    // const contacts = accident.driver?.emergencyContacts || [];
-    // for (const contact of contacts) {
-    //   if (contact.email) {
-    //     await this.emailService.sendEmergencyAlertMail({
-    //       contactName: contact.fullName,
-    //       contactEmail: contact.email,
-    //       driverName: accident.driver.user.fullName,
-    //       driverPhone: accident.driver.user.phone,
-    //       accidentTime: accident.time,
-    //       accidentLevel: accident.level,
-    //       accidentStatus: 'CONFIRMED',
-    //       location,
-    //     });
-    //   }
-    // }
+    const contacts = accident.driver?.emergencyContacts || [];
+    for (const contact of contacts) {
+      if (contact.email) {
+        await this.emailService.sendEmergencyAlertMail({
+          contactName: contact.fullName,
+          contactEmail: contact.email,
+          driverName: accident.driver.user.fullName,
+          driverPhone: accident.driver.user.phone,
+          accidentTime: accident.time,
+          accidentLevel: accident.level,
+          accidentStatus: 'CONFIRMED',
+          location,
+        });
+      }
+    }
 
     // queue to confirmed accident handler
     await this.queueHandleConfirmedAccident({
